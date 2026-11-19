@@ -1,5 +1,6 @@
 // Standalone preview uses synthetic data. Apps Script mode fails closed on load errors.
-import { filterCards, findDuplicates, demoCards } from './model.js';
+import { findDuplicates, demoCards } from './model.js';
+import { searchPeople } from './search.js';
 import { createTransport } from './transport.js';
 const transport=createTransport();
 let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.length, saving=false, pendingRequest=null, loaded=!transport;
@@ -8,10 +9,11 @@ const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
 function render(){
   $('#count-all').textContent=cards.length;$('#count-review').textContent=cards.filter(c=>c.status==='待確認').length;$('#count-follow').textContent=cards.filter(c=>c.next).length;
-  const result=filterCards(cards,$('#search').value,$('#category').value,$('#status').value);
+  const search=searchPeople(cards,$('#search').value,$('#category').value,$('#status').value),result=search.matches.map(m=>m.card);
+  $('#search-explanation').textContent=search.message;
   $('#result-count').textContent=`顯示 ${result.length} 位／共 ${cards.length} 位${transport?'':'範例'}人物`;
   $('#empty').hidden=result.length>0;
-  $('#card-grid').innerHTML=result.map((c)=>`<button class="person-card" data-id="${escape(c.id)}" aria-label="查看${escape(c.name)}"><div class="card-art tone-${Number(c.tone)||0}"><span class="initial">${escape(c.name.slice(0,1))}</span><span class="art-label">${transport?'人物資料':'虛構範例'}</span></div><div class="card-body"><div class="card-top"><h2>${escape(c.name)}</h2><span class="badge ${c.status==='待確認'?'review':''}">${escape(c.status)}</span></div><p class="alias">${escape(c.alias||'尚無別名')}</p><div class="company">${escape(c.company||'組織待補充')}</div><p class="role">${escape(c.role||'職稱待補充')} · ${escape(c.city||'地區待補充')}</p><div class="tags"><span class="tag">${escape(c.category)}</span><span class="tag">${escape(c.offers||'資源待補充')}</span></div><div class="card-bottom">${escape(c.next?'下一步：'+c.next:'尚未記錄下一步')}</div></div></button>`).join('');
+  $('#card-grid').innerHTML=search.matches.map(({card:c,evidence})=>`<button class="person-card" data-id="${escape(c.id)}" aria-label="查看${escape(c.name)}"><div class="card-art tone-${Number(c.tone)||0}"><span class="initial">${escape(c.name.slice(0,1))}</span><span class="art-label">${transport?'人物資料':'虛構範例'}</span></div><div class="card-body"><div class="card-top"><h2>${escape(c.name)}</h2><span class="badge ${c.status==='待確認'?'review':''}">${escape(c.status)}</span></div><p class="alias">${escape(c.alias||'尚無別名')}</p><div class="company">${escape(c.company||'組織待補充')}</div><p class="role">${escape(c.role||'職稱待補充')} · ${escape(c.city||'地區待補充')}</p><div class="tags"><span class="tag">${escape(c.category)}</span><span class="tag">${escape(c.offers||'資源待補充')}</span></div>${evidence?`<div class="search-evidence"><strong>符合依據</strong>${evidence.fields.map(f=>`<p>${escape(f.label)}：「${escape(f.quote)}」<small>${escape(f.confirmation)}${f.sourceIds.length?' · '+escape(f.sourceIds.join('、')):''}</small></p>`).join('')}<small>${escape(evidence.recordId)} · ${evidence.version==null?'版本未提供':'版本'+escape(evidence.version)} · ${escape(evidence.source)}</small></div>`:''}<div class="card-bottom">${escape(c.next?'下一步：'+c.next:'尚未記錄下一步')}</div></div></button>`).join('');
   const followups=cards.filter(c=>c.next).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
   $('#followup-list').innerHTML=followups.length?followups.map(c=>`<article class="followup"><div><h2>${escape(c.name)} · ${escape(c.company)}</h2><p>${escape(c.next)}</p><p>追蹤日期：${escape(c.date||'未指定')} · 尚未建立提醒</p></div><button class="secondary" data-id="${escape(c.id)}">查看與修改</button></article>`).join(''):'<p class="empty">目前沒有下一步行動。</p>';
 }

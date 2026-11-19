@@ -1,0 +1,309 @@
+{
+  "description": "全部為公開虛構資料；不代表真實人物、場地、檔期或查證。",
+  "query": "台南誰能提供場地",
+  "expectedIds": [
+    "SUP-001",
+    "SUP-002"
+  ],
+  "cards": [
+    {
+      "id": "SUP-001",
+      "name": "虛構場地供給甲",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "可提供台南活動場地",
+      "needs": "尋找課程合作",
+      "status": "已確認",
+      "version": 2,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 SUP-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-SUP-001"
+            ]
+          },
+          "offers": {
+            "value": "可提供台南活動場地",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-SUP-001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "SUP-002",
+      "name": "虛構空間供給乙",
+      "company": "虛構搜尋測試組織",
+      "city": "臺南市",
+      "offers": "台南活動空間出租",
+      "needs": "",
+      "status": "已確認",
+      "version": 3,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 SUP-002",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "臺南市",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-SUP-002"
+            ]
+          },
+          "offers": {
+            "value": "台南活動空間出租",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-SUP-002"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "DEM-001",
+      "name": "虛構場地需求丙",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "文化體驗課程",
+      "needs": "尋找場地合作",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 DEM-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-DEM-001"
+            ]
+          },
+          "offers": {
+            "value": "文化體驗課程",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-DEM-001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "OTHER-001",
+      "name": "虛構高雄供給丁",
+      "company": "虛構搜尋測試組織",
+      "city": "高雄",
+      "offers": "可提供場地",
+      "needs": "",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 OTHER-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "高雄",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-OTHER-001"
+            ]
+          },
+          "offers": {
+            "value": "可提供場地",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-OTHER-001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "NEG-001",
+      "name": "虛構否定供給戊",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "目前無法提供場地",
+      "needs": "",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 NEG-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-NEG-001"
+            ]
+          },
+          "offers": {
+            "value": "目前無法提供場地",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-NEG-001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "PENDING-001",
+      "name": "虛構待確認己",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "可提供場地",
+      "needs": "",
+      "status": "待確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 PENDING-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-PENDING-001"
+            ]
+          },
+          "offers": {
+            "value": "可提供場地",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-PENDING-001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "NOTES-001",
+      "name": "虛構談話提及庚",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "餐飲服務",
+      "needs": "",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 NOTES-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-NOTES-001"
+            ]
+          },
+          "offers": {
+            "value": "餐飲服務",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-NOTES-001"
+            ]
+          }
+        }
+      },
+      "notes": "朋友可能提供台南場地",
+      "role": "場地窗口"
+    },
+    {
+      "id": "INFER-001",
+      "name": "虛構推論線索辛",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "可提供場地",
+      "needs": "",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 INFER-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-INFER-001"
+            ]
+          },
+          "offers": {
+            "value": "可提供場地",
+            "status": "推論",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-INFER-001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "STALE-001",
+      "name": "虛構回條不符壬",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "可提供場地",
+      "needs": "",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "公開虛構搜尋案例 STALE-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-STALE-001"
+            ]
+          },
+          "offers": {
+            "value": "餐飲服務",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-STALE-001"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

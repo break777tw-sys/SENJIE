@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 const html=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
-const source=['model.js','transport.js','app.js'].map(f=>readFileSync(new URL('../../'+f,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+const source=['model.js','search.js','transport.js','app.js'].map(f=>readFileSync(new URL('../../'+f,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
 class Element{
  constructor(id=''){this.id=id;this.value='';this.checked=false;this.hidden=false;this.disabled=false;this.dataset={};this.handlers={};this.textContent='';this._html='';this.classList={toggle:()=>false,add:()=>{},remove:()=>{}};}
  addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);}
