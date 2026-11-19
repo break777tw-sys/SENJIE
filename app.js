@@ -7,6 +7,23 @@ let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.
 let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false;
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
+const routeLabels={home:'SENJIE 總入口',...labels};let activeView=null;
+const routeFromHash=()=>Object.hasOwn(routeLabels,window.location.hash.slice(1))?window.location.hash.slice(1):'home';
+function showView(view){
+  if(!Object.hasOwn(routeLabels,view))view='home';
+  if(activeView===view)return;
+  if($('#detail').open)$('#detail').close();
+  activeView=view;const home=view==='home';
+  document.querySelectorAll('.view').forEach(section=>section.hidden=section.id!==view);
+  document.querySelectorAll('[data-view]').forEach(button=>{button.classList.toggle('active',button.dataset.view===view);if(button.dataset.view===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+  $('#site-brand').hidden=!home;$('#card-brand').hidden=home;$('#card-navigation').hidden=home;$('#module-crumb').hidden=home;
+  $('#site-home-link').textContent=home?'SENJIE 總入口':'返回 SENJIE 總入口';
+  $('#crumb').textContent=routeLabels[view];document.title=home?'SENJIE 總入口 · 開發版':routeLabels[view]+' · 名片／人脈 · SENJIE';
+}
+function navigate(view){
+  if(!Object.hasOwn(routeLabels,view))return;
+  showView(view);if(window.location.hash!=='#'+view)window.location.hash='#'+view;
+}
 function render(){
   $('#count-all').textContent=cards.length;$('#count-review').textContent=cards.filter(c=>c.status==='待確認').length;$('#count-follow').textContent=cards.filter(c=>c.next).length;
   const search=searchPeople(cards,$('#search').value,$('#category').value,$('#status').value),result=search.matches.map(m=>m.card);
@@ -30,10 +47,11 @@ function openCard(id){
   $('#source-links').innerHTML=(editing.provenance?.sources||[]).map(s=>`<p>${escape(s.side)} · <a href="${escape(s.originalUrl)}" target="_blank" rel="noopener">開啟 Drive 原圖</a> · ${escape(s.id)}</p>`).join('');
 }
 function notify(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').hidden=true,5000);}
-document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
-  const view=button.dataset.view;document.querySelectorAll('.view').forEach(s=>s.hidden=s.id!==view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));$('#crumb').textContent=labels[view];
-}));
-document.querySelector('.brand').addEventListener('click',()=>document.querySelector('[data-view="cards"]').click());
+document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>navigate(button.dataset.view)));
+document.querySelectorAll('[data-route]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();navigate(link.dataset.route);}));
+$('#card-brand').addEventListener('click',event=>{event.preventDefault();navigate('cards');});
+window.addEventListener('hashchange',()=>showView(routeFromHash()));
+showView(routeFromHash());
 for(const selector of ['#search','#category','#status'])$(selector).addEventListener('input',render);
 $('#layout').addEventListener('click',()=>{const list=$('#card-grid').classList.toggle('list');$('#layout').textContent=list?'切換卡片':'切換列表';$('#layout').setAttribute('aria-pressed',String(list));});
 $('#new-card').addEventListener('click',()=>openCard(null));$('#close-detail').addEventListener('click',()=>$('#detail').close());

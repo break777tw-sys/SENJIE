@@ -6,18 +6,24 @@ import {randomUUID} from 'node:crypto';
 const html=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
 const source=['model.js','search.js','transport.js','app.js'].map(f=>readFileSync(new URL('../../'+f,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
 class Element{
- constructor(id=''){this.id=id;this.value='';this.checked=false;this.hidden=false;this.disabled=false;this.dataset={};this.handlers={};this.textContent='';this._html='';this.classList={toggle:()=>false,add:()=>{},remove:()=>{}};}
+ constructor(id=''){this.id=id;this.value='';this.checked=false;this.hidden=false;this.disabled=false;this.dataset={};this.handlers={};this.textContent='';this._html='';this.attributes=new Map();const classes=new Set();this.classList={toggle:(name,force)=>{const enabled=force??!classes.has(name);enabled?classes.add(name):classes.delete(name);return enabled;},add:name=>classes.add(name),remove:name=>classes.delete(name),contains:name=>classes.has(name)};}
  addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);}
  async emit(type,target=this){for(const fn of this.handlers[type]||[])await fn({target,preventDefault(){}});}
  click(){return this.emit('click');}
- closest(selector){if(selector==='[data-resume]'&&this.dataset.resume)return this;if(selector==='[data-recognize]'&&this.dataset.recognize)return this;return null;}
- setAttribute(){}
+ closest(selector){if(selector==='[data-resume]'&&this.dataset.resume)return this;if(selector==='[data-recognize]'&&this.dataset.recognize)return this;if(selector==='[data-id]'&&this.dataset.id)return this;return null;}
+ setAttribute(name,value){this.attributes.set(name,String(value));}
+ getAttribute(name){return this.attributes.get(name)??null;}
+ removeAttribute(name){this.attributes.delete(name);}
  set innerHTML(value){this._html=value;}
  get innerHTML(){return this._html;}
 }
 export async function mountApp(backend,options={}){
  const nodes=new Map([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],new Element(m[1])]));
  for(const key of ['.mode','.notice','.brand','.detail-notice','[data-connection="sheets"]'])nodes.set(key,new Element(key));
+ const views=[...html.matchAll(/<section\b([^>]*\bid="([^"]+)"[^>]*\bclass="view"[^>]*)>/g)].map(m=>{const node=nodes.get(m[2]);node.hidden=/\bhidden\b/.test(m[1]);return node;});
+ const buttons=[...html.matchAll(/<button\b[^>]*\bdata-view="([^"]+)"[^>]*>/g)].map(m=>{const node=new Element();node.dataset.view=m[1];return node;});
+ const links=[...html.matchAll(/<a\b([^>]*\bid="([^"]+)"[^>]*\bdata-route="([^"]+)"[^>]*)>/g)].map(m=>{const node=nodes.get(m[2]);node.dataset.route=m[3];node.setAttribute('href',m[1].match(/href="([^"]+)"/)[1]);return node;});
+ const brand=nodes.get('card-brand');brand.setAttribute('href','#cards');
  const fields=[...html.matchAll(/<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"/g)].map(m=>{const f=new Element();f.name=m[1];return f;});
  fields.namedItem=name=>fields.find(f=>f.name===name)||null;for(const f of fields)fields[f.name]=f;
  const form=nodes.get('detail-form'),submit=new Element('submit');form.elements=fields;form.reset=()=>fields.forEach(f=>f.value=f.name==='category'?'文化表演':f.name==='status'?'待確認':'');form.querySelector=()=>submit;
@@ -31,15 +37,19 @@ export async function mountApp(backend,options={}){
    if(selector.startsWith('[data-side='))return sides.get(selector.match(/"([^"]+)"/)[1]);
    return nodes.get(selector.startsWith('#')?selector.slice(1):selector)||null;
   },
-  querySelectorAll(selector){if(selector==='[data-source]:checked')return selected;if(selector==='#field-checks input:checked')return checks.inputs?.filter(i=>i.checked)||[];return [];},
-  addEventListener(){},
+  querySelectorAll(selector){if(selector==='[data-source]:checked')return selected;if(selector==='#field-checks input:checked')return checks.inputs?.filter(i=>i.checked)||[];if(selector==='.view')return views;if(selector==='[data-view]')return buttons;if(selector==='[data-route]')return links;return [];},
+  handlers:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);},
  };
  const calls=[];
  const bridge=new Proxy({},{get(_,method){if(method==='withSuccessHandler')return success=>({withFailureHandler:failure=>new Proxy({},{get:(_,name)=>payload=>{calls.push({name,payload});Promise.resolve().then(()=>backend.c[name](payload==null?payload:JSON.parse(JSON.stringify(payload)))).then(result=>success(JSON.parse(JSON.stringify(result))),failure);}})});}});
- const context=vm.createContext({document,window:{addEventListener(){}},google:{script:{run:bridge}},crypto:{randomUUID},FormData:class{constructor(target){return target.elements.map(f=>[f.name,f.value]);}},Date,console,URL:{revokeObjectURL(){}},setTimeout:()=>1,clearTimeout(){}});
+ const window={location:{hash:options.hash||''},handlers:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);}};
+ const context=vm.createContext({document,window,google:{script:{run:bridge}},crypto:{randomUUID},FormData:class{constructor(target){return target.elements.map(f=>[f.name,f.value]);}},Date,console,URL:{revokeObjectURL(){}},setTimeout:()=>1,clearTimeout(){}});
  vm.runInContext(options.script||source,context);
  const settled=()=>new Promise(resolve=>setImmediate(resolve));await settled();await settled();
- return {nodes,form,fields,submit,calls,context,settled,
+ return {nodes,form,fields,submit,calls,context,settled,navigation:{views,buttons,links},
+  async navigate(view){const control=buttons.find(b=>b.dataset.view===view)||links.find(l=>l.dataset.route===view);if(!control)throw new Error('No navigation control: '+view);await control.click();},
+  async setHash(hash){window.location.hash=hash;for(const fn of window.handlers.hashchange||[])await fn();},
+  async openPerson(id){const target=new Element();target.dataset.id=id;for(const fn of document.handlers.click||[])await fn({target});},
   selectSources(sources){selected=sources.map((s,i)=>{const node=new Element();node.dataset.source=s.id;const side=new Element();side.value=i?'反面':'正面';sides.set(s.id,side);return node;});},
   async openReview(){await nodes.get('review-selected').click();},
   confirmFields(){checks.inputs.forEach(c=>c.checked=true);nodes.get('confirm-one-card').checked=true;},
