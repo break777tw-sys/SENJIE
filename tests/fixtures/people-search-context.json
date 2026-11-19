@@ -12,7 +12,8 @@
     "SUP-CROSS-001",
     "MEETING-OTHER-001",
     "PENDING-NOTES-001",
-    "STALE-NOTES-001"
+    "STALE-NOTES-001",
+    "FUTURE-MEETING-001"
   ],
   "latestMeetingDate": "2026-11-10",
   "latestMeetingEvent": "秋季交流會",
@@ -773,6 +774,93 @@
         }
       },
       "notes": "2026-11-10 在秋季交流會認識。朋友可提供台南場地"
+    },
+    {
+      "id": "CLIENT-OUTSIDE-001",
+      "name": "虛構台南客戶外縣市場地",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "專為台南客戶提供外縣市場地",
+      "needs": "尋找課程合作",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "SYNTHETIC CLIENT-OUTSIDE-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-CLIENT-OUTSIDE-001"
+            ]
+          },
+          "offers": {
+            "value": "專為台南客戶提供外縣市場地",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-CLIENT-OUTSIDE-001"
+            ]
+          },
+          "notes": {
+            "value": "2026-11-10 在秋季交流會認識",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-CLIENT-OUTSIDE-001"
+            ]
+          }
+        }
+      },
+      "notes": "2026-11-10 在秋季交流會認識"
+    },
+    {
+      "id": "FUTURE-MEETING-001",
+      "name": "虛構未來交流會供給",
+      "company": "虛構搜尋測試組織",
+      "city": "台南",
+      "offers": "可提供台南活動場地",
+      "needs": "尋找課程合作",
+      "status": "已確認",
+      "version": 1,
+      "category": "場地資源",
+      "source": "SYNTHETIC FUTURE-MEETING-001",
+      "updatedAt": "2026-11-19T00:00:00.000Z",
+      "provenance": {
+        "fields": {
+          "city": {
+            "value": "台南",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-FUTURE-MEETING-001"
+            ]
+          },
+          "offers": {
+            "value": "可提供台南活動場地",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-FUTURE-MEETING-001"
+            ]
+          },
+          "notes": {
+            "value": "2099-01-01 在未來交流會認識",
+            "status": "使用者確認",
+            "method": "虛構人工確認",
+            "sourceIds": [
+              "SYNTHETIC-FUTURE-MEETING-001"
+            ]
+          }
+        }
+      },
+      "notes": "2099-01-01 在未來交流會認識"
     }
-  ]
+  ],
+  "evaluationInstant": "2026-11-19T13:10:18Z",
+  "evaluationDate": "2026-11-19",
+  "evaluationTimeZone": "Asia/Taipei"
 }

@@ -64,3 +64,34 @@ test('原app複合問句input事件顯示供給、場合、來源與最新日期
  assert.match(html,/認識日期與場合/);assert.match(html,/2026-11-10 在秋季交流會認識/);assert.match(html,/SYNTHETIC-SUP-CROSS-001/);assert.match(page.nodes.get('search-explanation').textContent,/人物地區不代替場地所在地/);
  page.nodes.get('search').value=fixture.query.replace('台南的場地','台南的免費場地');await page.nodes.get('search').emit('input');assert.equal(page.nodes.get('card-grid').innerHTML,'');
 });
+test('台南客戶不等於台南場地：外縣市／客戶地點與供給同句仍不誤薦',()=>{
+ for(const offers of ['專為台南客戶提供外縣市場地','為台南客戶提供場地','台南客戶可租用外地活動空間','提供台南場地客戶的外縣市場地'])assert.deepEqual(ids(searchPeople([supplier(offers)],fixture.basicQuery)),[]);
+ const result=searchPeople(fixture.cards,fixture.query,'','',{now:fixture.evaluationInstant});assert.ok(!ids(result).includes('CLIENT-OUTSIDE-001'));
+});
+test('地區直接描述場地的正例保留；客戶在台南且確有台南場地可列',()=>{
+ for(const offers of ['可提供台南活動場地','台南活動空間出租','可提供臺南市場地','可提供台南無障礙活動場地','可提供位於台南的場地','可提供場地位於台南','專為台南客戶提供台南場地'])assert.deepEqual(ids(searchPeople([supplier(offers)],fixture.basicQuery)),['SUP-001'],offers);
+});
+test('未來交流會不作上次，保留原最近已發生場次與可查截止日',()=>{
+ const result=searchPeople(fixture.cards,fixture.query,'','',{now:fixture.evaluationInstant});assert.deepEqual(ids(result),fixture.expectedIds);assert.match(result.message,/已排除 1 筆未來日期/);assert.match(result.message,/截至 2026-11-19（Asia\/Taipei/);
+ for(const m of result.matches){assert.equal(m.evidence.meeting.asOfDate,'2026-11-19');assert.equal(m.evidence.meeting.timeZone,'Asia/Taipei');assert.equal(m.evidence.meeting.date,fixture.latestMeetingDate);}
+});
+test('只剩未來認識紀錄時不回傳任何人，明示沒有可用的上次',()=>{
+ const future=fixture.cards.filter(c=>c.id==='FUTURE-MEETING-001'),result=searchPeople(future,fixture.query,'','',{now:fixture.evaluationInstant});assert.deepEqual(ids(result),[]);assert.match(result.message,/無法判定/);assert.match(result.message,/未來日期已排除/);
+});
+test('臺北午夜邊界：同日可用、明日不可用，不拿UTC日期當本地日期',()=>{
+ const card=notes(structuredClone(fixture.cards[0]),'2026-11-20 在午夜交流會認識');
+ const before=searchPeople([card],fixture.query,'','',{now:'2026-11-19T15:59:59Z'});assert.deepEqual(ids(before),[]);assert.match(before.message,/2026-11-19/);
+ const after=searchPeople([card],fixture.query,'','',{now:'2026-11-19T16:00:00Z'});assert.deepEqual(ids(after),['SUP-001']);assert.equal(after.matches[0].evidence.meeting.asOfDate,'2026-11-20');
+});
+test('查詢時間無效時不臆選上次；缺日期／無效日期既有規則保留',()=>{
+ const result=searchPeople(fixture.cards,fixture.query,'','',{now:'invalid-clock'});assert.deepEqual(ids(result),[]);assert.match(result.message,/查詢時間無效/);
+ const bad=notes(structuredClone(fixture.cards[0]),'2026-02-30 在交流會認識');assert.match(searchPeople([bad],fixture.query,'','',{now:fixture.evaluationInstant}).message,/缺日期或格式不明/);
+});
+test('未來日期只限制上次條件，不改寫已確認供給或原資料',()=>{
+ const before=JSON.stringify(fixture.cards);assert.deepEqual(ids(searchPeople(fixture.cards,fixture.basicQuery)),fixture.basicExpectedIds);assert.deepEqual(ids(searchPeople(fixture.cards,fixture.query,'','',{now:fixture.evaluationInstant})),fixture.expectedIds);assert.equal(JSON.stringify(fixture.cards),before);
+});
+test('原app事件保留原複合問句正例，排除客戶地區誤薦與未來交流會',async()=>{
+ const env=createFakeGoogle();env.c.listCards=()=>({schemaVersion:1,cards:structuredClone(fixture.cards),readAt:fixture.evaluationInstant});
+ const page=await mountApp(env);page.nodes.get('search').value=fixture.query;await page.nodes.get('search').emit('input');
+ const html=page.nodes.get('card-grid').innerHTML;for(const id of fixture.expectedIds)assert.match(html,new RegExp('data-id="'+id+'"'));assert.doesNotMatch(html,/data-id="(?:CLIENT-OUTSIDE-001|FUTURE-MEETING-001)"/);assert.match(page.nodes.get('search-explanation').textContent,/Asia\/Taipei/);assert.match(page.nodes.get('search-explanation').textContent,/未來日期/);
+});

@@ -41,11 +41,23 @@ function supplyQuote_(offers){
  // Venue location must occur in the supply clause itself; a person's city is not evidence.
  // Mixed cities in one clause are ambiguous in this bounded parser and fail closed.
  const otherCity=/台北|新北|桃園|新竹|苗栗|台中|彰化|南投|雲林|嘉義|高雄|屏東|宜蘭|花蓮|台東|基隆|澎湖|金門|連江/;
- const supplied=clauses.filter(s=>/台南/.test(s)&&!otherCity.test(s)&&/(?:提供|供應|出租|出借|開放)/.test(s));
+ const venue='台南市?(?:的)?(?:無障礙)?(?:活動)?(?:場地|活動空間)',supply='(?:提供|供應|出租|出借|開放)';
+ const locatedSupply=new RegExp(supply+'(?:位於|設於)?'+venue+'|'+venue+'(?:對外)?'+supply+'|'+supply+'(?:場地|活動空間)(?:位於|設於|在)台南市?');
+ const outsideOrClient=/外縣市|外地|其他縣市|其他城市|不在台南|非台南|(?:場地|活動空間)(?:的)?(?:客戶|業主|窗口|公司|使用者|朋友|人士)/;
+ const supplied=clauses.filter(s=>locatedSupply.test(s)&&!otherCity.test(s)&&!outsideOrClient.test(s));
  return supplied.length?supplied.join('；'):null;
 }
-function latestMeeting_(cards){
- const records=[];let unknown=false;
+function taipeiDate_(now){
+ if(now==null)return null;
+ const instant=now instanceof Date?now:new Date(now);
+ if(!Number.isFinite(instant.valueOf()))return null;
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(instant);
+ return ['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('-');
+}
+function latestMeeting_(cards,now){
+ const asOfDate=taipeiDate_(now);
+ if(!asOfDate)return {error:'無法判定「上次」：查詢時間無效，未選取任何交流會。'};
+ const records=[];let unknown=false,futureRecords=0;
  for(const card of cards){
   if(!confirmedField_(card,'notes')||typeof card.notes!=='string')continue;
   for(const clause of card.notes.split(/[。；;\n]/).map(s=>s.trim()).filter(Boolean)){
@@ -54,24 +66,25 @@ function latestMeeting_(cards){
    if(!match){unknown=true;continue;}
    const [,date,event]=match,parsed=new Date(date+'T00:00:00Z');
    if(!Number.isFinite(parsed.valueOf())||parsed.toISOString().slice(0,10)!==date){unknown=true;continue;}
+   if(date>asOfDate){futureRecords++;continue;}
    records.push({cardId:card.id,date,event,quote:clause});
   }
  }
  if(unknown)return {error:'無法判定「上次」：已確認的交流會認識紀錄有缺日期或格式不明；請先核對認識日期與場合。'};
- if(!records.length)return {error:'無法判定「上次」：沒有可核對日期與場合的已確認交流會認識紀錄。'};
+ if(!records.length)return {error:'無法判定「上次」：沒有可核對日期與場合、且不晚於 '+asOfDate+'（Asia/Taipei）的已確認交流會認識紀錄。'+(futureRecords?'未來日期已排除。':'')};
  const date=records.reduce((latest,r)=>r.date>latest?r.date:latest,''),latest=records.filter(r=>r.date===date);
  if(new Set(latest.map(r=>r.event)).size!==1)return {error:'無法判定「上次」：最近日期有不同交流會，請先確認是哪一場。'};
- return {date,event:latest[0].event,records:latest};
+ return {date,event:latest[0].event,records:latest,asOfDate,timeZone:'Asia/Taipei',futureRecords};
 }
 function fieldEvidence_(card,key,label){
  const receipt=card.provenance?.fields?.[key];
  return {field:key,label,quote:card[key],recordId:card.id,version:card.version??null,confirmation:receipt?'逐欄使用者確認':'人物紀錄已確認；無逐欄回條',method:receipt?.method||card.source||'未提供來源說明',sourceIds:Array.isArray(receipt?.sourceIds)?[...receipt.sourceIds]:[]};
 }
-export function searchPeople(cards,query='',category='',status=''){
+export function searchPeople(cards,query='',category='',status='',{now=new Date()}={}){
  const parsed=parsePeopleQuery(query);
  if(parsed.mode==='keyword')return {mode:'keyword',matches:filterCards(cards,query,category,status).map(card=>({card,evidence:null})),message:'關鍵字模式：會搜尋供給、需求與談話。可試問「台南誰能提供場地」。'};
  if(parsed.mode==='unsupported')return {mode:'unsupported',matches:[],message:parsed.message};
- const current=currentPeople_(cards),meeting=parsed.meeting?latestMeeting_(current):null;
+ const current=currentPeople_(cards),meeting=parsed.meeting?latestMeeting_(current,now):null;
  if(meeting?.error)return {mode:'natural',intent:parsed,matches:[],message:meeting.error};
  const matches=[];
  for(const card of current){
@@ -81,8 +94,8 @@ export function searchPeople(cards,query='',category='',status=''){
   const met=meeting?.records.find(r=>r.cardId===card.id);if(meeting&&!met)continue;
   const fields=[...(confirmedField_(card,'city')?[fieldEvidence_(card,'city','人物地區（非場地依據）')]:[]),fieldEvidence_(card,'offers','場地供給與所在地')];
   if(met)fields.push(fieldEvidence_(card,'notes','認識日期與場合'));
-  matches.push({card,evidence:{recordId:card.id,version:card.version??null,updatedAt:card.updatedAt||null,source:card.source||'未提供來源說明',resourceQuote:quote,...(met?{meeting:met}:{}),fields}});
+  matches.push({card,evidence:{recordId:card.id,version:card.version??null,updatedAt:card.updatedAt||null,source:card.source||'未提供來源說明',resourceQuote:quote,...(met?{meeting:{...met,asOfDate:meeting.asOfDate,timeZone:meeting.timeZone}}:{}),fields}});
  }
- const context=meeting?'「上次」依目前已載入且已確認的認識紀錄，指 '+meeting.date+'「'+meeting.event+'」；未核對其他未載入場次。':'';
+ const context=meeting?'「上次」截至 '+meeting.asOfDate+'（Asia/Taipei，含當日），依目前已載入且已確認的認識紀錄，指 '+meeting.date+'「'+meeting.event+'」；'+(meeting.futureRecords?'已排除 '+meeting.futureRecords+' 筆未來日期；':'')+'未核對其他未載入場次。':'';
  return {mode:'natural',intent:parsed,matches,message:context+'解讀：台南場地供給。僅用已確認供給欄位中的台南場地原文；人物地區不代替場地所在地，需求、職稱與談話不作供給依據。這是紀錄條件比對，未查實際地址、檔期或報價。'};
 }
