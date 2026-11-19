@@ -64,11 +64,13 @@ function validateCard_(data){
 }
 function saveCard(request){
   const user=authorize_();
-  if(!request||!request.card||typeof request.requestId!=='string'||!/^[A-Za-z0-9-]{16,100}$/.test(request.requestId))throw new Error('缺少有效的操作編號。');
-  const clean=validateCard_(request.card);
   const lock=LockService.getScriptLock();
   if(!lock.tryLock(5000))throw new Error('其他資料正在保存，請稍後重試。');
-  try{
+  try{return saveCardLocked_(request,user);}finally{lock.releaseLock();}
+}
+function saveCardLocked_(request,user,provenance){
+  if(!request||!request.card||typeof request.requestId!=='string'||!/^[A-Za-z0-9-]{16,100}$/.test(request.requestId))throw new Error('缺少有效的操作編號。');
+  const clean=validateCard_(request.card);
     const sheet=records_(user),revisions=readRevisions_(sheet);
     const repeated=revisions.find(r=>r.requestId===request.requestId&&r.actor===user.email);
     if(repeated){
@@ -81,14 +83,18 @@ function saveCard(request){
     if(old&&request.expectedVersion!==old.version)throw new Error('資料已在其他入口更新，請重新讀取後再修改。');
     const normalize=value=>String(value||'').normalize('NFKC').trim().toLowerCase();
     if(current.some(c=>c.id!==old?.id&&normalize(c.name)===normalize(clean.name)&&normalize(c.company)===normalize(clean.company)))throw new Error('發現同名且同公司的資料，請核對；未執行合併。');
-    const record={...clean,id:old?.id||'BC-'+Utilities.getUuid(),version:(old?.version||0)+1,source:old?.source||'網站手動建檔',updatedAt:new Date().toISOString(),tone:old?.tone||0};
+    const record={...clean,id:old?.id||'BC-'+Utilities.getUuid(),version:(old?.version||0)+1,source:old?.source||(provenance?'照片確認歸檔':'網站手動建檔'),updatedAt:new Date().toISOString(),tone:old?.tone||0};
+    if(provenance)record.provenance=provenance;
+    else if(old?.provenance){
+      record.provenance=JSON.parse(JSON.stringify(old.provenance));
+      Object.keys(clean).forEach(key=>{if(clean[key]!==old[key])record.provenance.fields[key]={value:clean[key],previousValue:old[key]||'',status:clean[key]?(clean.status==='已確認'?'使用者確認':'待確認'):'未提供',method:'網站手動修改',actor:user.email,at:record.updatedAt,sourceIds:old.provenance.sources.map(s=>s.id)};});
+    }
     // JSON cell starts with {, keeping source strings out of executable formula cells.
     sheet.getRange(sheet.getLastRow()+1,1,1,HEADERS_.length).setValues([[record.id,record.version,request.requestId,record.updatedAt,user.email,JSON.stringify(record)]]);
     SpreadsheetApp.flush();
     const persisted=JSON.parse(sheet.getRange(sheet.getLastRow(),6).getValue());
     if(persisted.id!==record.id||persisted.version!==record.version)throw new Error('寫入未通過讀回驗證，請以相同操作編號重試。');
     return {record:persisted,replayed:false};
-  }finally{lock.releaseLock();}
 }
 // Only callable from the editor. Does not create/share a spreadsheet or alter contacts.
 function initializeRecords_(){
