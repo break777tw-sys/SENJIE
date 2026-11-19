@@ -1,4 +1,4 @@
-/** Deployment source only: NOT connected or authorized yet.
+/** Apps Script backend; deployment and live acceptance are recorded separately.
  * Deploy as the user accessing the app. Configure ALLOWED_EMAILS and SPREADSHEET_ID
  * in Script Properties. Unknown/empty identity is denied; do not weaken this check.
  * Records is append-only: each row stores one complete revision. No contacts scope.
@@ -40,7 +40,8 @@ function doGet(){
 }
 function listCards(){
   const user=authorize_();
-  return {schemaVersion:1,cards:latest_(readRevisions_(records_(user))),readAt:new Date().toISOString()};
+  const dataLabel=String(PropertiesService.getScriptProperties().getProperty('DATA_LABEL')||'Google 資料');
+  return {schemaVersion:1,cards:latest_(readRevisions_(records_(user))),readAt:new Date().toISOString(),dataLabel};
 }
 function validateCard_(data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('名片格式不正確。');

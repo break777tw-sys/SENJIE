@@ -19,7 +19,7 @@ function openCard(id){
   pendingRequest=null;
   editing=cards.find(c=>c.id===id)||{id:transport?'':`DEMO${String(++sequence).padStart(4,'0')}`,name:'',alias:'',company:'',role:'',city:'',category:'文化表演',status:'待確認',offers:'',needs:'',notes:'',next:'',date:'',phone:'',email:'',line:'',address:'',source:transport?'網站手動建檔':'本次頁面手動新增',tone:sequence%3};
   $('#detail-form').reset();
-  $('#detail-title').textContent=editing.name||'新增範例名片';$('#detail-id').textContent=editing.id;
+  $('#detail-title').textContent=editing.name||(transport?'新增名片':'新增範例名片');$('#detail-id').textContent=editing.id;
   for(const [key,value] of Object.entries(editing)){const input=$('#detail-form').elements.namedItem(key);if(input)input.value=value;}
   $('#duplicate-warning').hidden=true;$('#detail').showModal();
 }
@@ -68,7 +68,7 @@ async function refresh(){
     if(response.schemaVersion!==1||!Array.isArray(response.cards))throw new Error('資料結構不符，停止載入。');
     cards=response.cards;loaded=true;render();
     $('.mode').textContent='Google 資料已讀取';
-    $('.notice').textContent=`Google 正式資料 · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。圖片辨識與 LINE 尚未接通。`;
+    $('.notice').textContent=`${response.dataLabel||'Google 資料'} · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。圖片辨識與 LINE 尚未接通。`;
   }catch(error){
     cards=[];render();$('.mode').textContent='Google 讀取失敗';
     $('.notice').textContent=error.message+' 本頁未顯示舊資料或示範名片。';
@@ -81,5 +81,5 @@ if(transport){
   $('#detail-form [type="submit"]').textContent='保存至 Google';
   $('#refresh').hidden=false;
   document.querySelector('[data-connection="sheets"]').textContent='正在驗證';
-  refresh().then(()=>document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取正式總表':'讀取失敗');
+  refresh().then(()=>document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取 Google 資料':'讀取失敗');
 }
