@@ -4,7 +4,9 @@ GitHub 專案為 Adam 建立的 `break777tw-sys/SENJIE`。網站顯示名稱與�
 
 ## 已實作
 
-無建置依賴的 HTML/CSS/JavaScript 網頁，提供響應式名片卡片與列表、關鍵字及分類篩選、人物編輯、疑似重複阻擋、追蹤清單，以及多圖選取／拖曳預覽。只包含虛構資料。頁面內修改不持久保存，重新整理還原。
+無外部套件依賴的 HTML/CSS/JavaScript 網頁，提供響應式名片卡片與列表、關鍵字及分類篩選、人物與聯絡方式編輯、疑似重複阻擋、追蹤清單，以及多圖選取／拖曳預覽。單獨開啟時只包含虛構資料，頁面內修改不持久保存，重新整理還原。
+
+另已撰寫 Apps Script 讀寫來源程式：驗證 Google 身分、版本衝突保護、操作重送去重、追加歷史版本及保存後讀回驗證。只有經授權部署並通過真實 Google 驗收後才算連線完成。此程式透過 Apps Script HTML Service 執行，GitHub Pages 並不會直接取得私人資料。
 
 ## 尚未接通
 
@@ -12,7 +14,9 @@ Google Sheets、Drive、身分驗證、圖片辨識、LINE、dot、ChatGPT 共�
 
 ## 本地預覽與檢查
 
-在本目錄執行 `python3 -m http.server 8765 --bind 127.0.0.1`，開啟終端顯示的本機網址。支援 Node.js 時可執行 `npm test` 或 `node --test tests/model.test.js`。
+在本目錄執行 `python3 -m http.server 8765 --bind 127.0.0.1`，開啟終端顯示的本機網址。支援 Node.js 時可執行 `npm test` 或 `node --test tests/*.test.js`。執行 `node scripts/build.mjs` 產生不依賴外部資產的 `dist/index.html` 與 `google-apps-script/Index.html`；生成檔不提交，避免維護重複來源。
+
+Google 部署步驟見 [google-apps-script/SETUP.md](google-apps-script/SETUP.md)。程式邏輯已以模擬服務驗證，尚未完成 Google 實際連線及瀏覽器版面測試。本機 HTTP 預覽在目前執行環境被限制，未繞過。
 
 ## 正式架構界線
 

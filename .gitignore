@@ -6,3 +6,5 @@ private-data/
 uploads/
 *.log
 .DS_Store
+dist/
+google-apps-script/Index.html
