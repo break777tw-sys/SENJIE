@@ -5,12 +5,12 @@ import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 const root=new URL('../../',import.meta.url);
-const fixture=JSON.parse(readFileSync(new URL('tests/fixtures/people-search.json',root),'utf8'));
+const fixture=JSON.parse(readFileSync(new URL('tests/fixtures/people-search-context.json',root),'utf8'));
 const model=readFileSync(new URL('model.js',root),'utf8'),tail=model.indexOf('const normalize=');
 if(tail<0)throw new Error('示範資料界線已變動，停止而不改寫程式。');
 const virtualModel='export const demoCards='+JSON.stringify(fixture.cards)+';\n'+model.slice(tail);
 let html=readFileSync(new URL('index.html',root),'utf8');
-html=html.replace('<main>','<main><section class="notice">本機自然語句驗收 · 9位虛構人物 · 沒有 Google 或付費 AI。<a href="/fixture.json" target="_blank" rel="noopener">查看固定原始資料</a></section>');
+html=html.replace('<main>','<main><section class="notice">本機自然語句驗收 · '+fixture.cards.length+'位虛構人物 · 沒有 Google 或付費 AI。<a href="/fixture.json" target="_blank" rel="noopener">查看固定原始資料</a></section>');
 const assets=new Map([['/',{type:'text/html; charset=utf-8',body:html}],['/fixture.json',{type:'application/json; charset=utf-8',body:JSON.stringify(fixture)}],['/model.js',{type:'text/javascript; charset=utf-8',body:virtualModel}]]);
 for(const name of ['style.css','app.js','search.js','transport.js'])assets.set('/'+name,{type:name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8',body:readFileSync(new URL(name,root))});
 export async function startPeopleSearch(port=8789){

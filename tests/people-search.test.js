@@ -24,11 +24,11 @@ test('額外條件、反向需求或未知地區不默默退回混搜',()=>{
 });
 test('offers欄錯置需求、否定、媒合或推測時也不當供給；無障礙不誤作沒有場地',()=>{
  for(const offers of ['目前無法提供場地','不提供場地，但提供餐飲','我們需要場地','正在尋找場地','場地需求媒合','推測可提供場地','可能提供活動空間','提供場地，但目前停止對外開放'])assert.deepEqual(ids(searchPeople([supplier({offers})],fixture.query)),[]);
- for(const offers of ['無障礙活動場地','不提供餐飲，但可提供場地'])assert.deepEqual(ids(searchPeople([supplier({offers})],fixture.query)),['SUP-001']);
+ for(const offers of ['可提供台南無障礙活動場地','不提供餐飲，但可提供台南場地'])assert.deepEqual(ids(searchPeople([supplier({offers})],fixture.query)),['SUP-001']);
 });
 test('待確認、推論與舊欄位回條均排除；不把人物已確認當逐欄已確認',()=>{
  for(const id of ['PENDING-001','INFER-001','STALE-001'])assert.deepEqual(ids(searchPeople(fixture.cards.filter(c=>c.id===id),fixture.query)),[]);
- const changed=structuredClone(fixture.cards[0]);delete changed.provenance.fields.city;assert.deepEqual(ids(searchPeople([changed],fixture.query)),[]);
+ const changed=structuredClone(fixture.cards[0]);delete changed.provenance.fields.offers;assert.deepEqual(ids(searchPeople([changed],fixture.query)),[]);
 });
 test('沿用分類／確認狀態篩選；既有姓名關鍵字仍可使用',()=>{
  assert.equal(searchPeople(fixture.cards,fixture.query,'教育培訓').matches.length,0);
@@ -56,7 +56,7 @@ test('原app搜尋input事件列出兩供給方與原文／版本依據，不顯
  assert.doesNotMatch(html,/DEM-001|虛構場地需求丙|NOTES-001/);assert.match(html,/符合依據/);assert.match(html,/版本2/);assert.match(html,/SYNTHETIC-SUP-001/);assert.match(page.nodes.get('search-explanation').textContent,/需求、職稱與談話不作供給依據/);
 });
 test('原app拒絕未知問句而不留下上次供給結果；證據HTML字串有跳脫',async()=>{
- const env=createFakeGoogle(),records=structuredClone(fixture.cards);records[0].offers='可提供場地 <img src=x onerror=bad()>';records[0].provenance.fields.offers.value=records[0].offers;
+ const env=createFakeGoogle(),records=structuredClone(fixture.cards);records[0].offers='可提供台南場地 <img src=x onerror=bad()>';records[0].provenance.fields.offers.value=records[0].offers;
  env.c.listCards=()=>({schemaVersion:1,cards:records,readAt:'2026-11-19T00:00:00.000Z'});
  const page=await mountApp(env);page.nodes.get('search').value=fixture.query;await page.nodes.get('search').emit('input');assert.match(page.nodes.get('card-grid').innerHTML,/&lt;img/);assert.doesNotMatch(page.nodes.get('card-grid').innerHTML,/<img src=x/);
  page.nodes.get('search').value='台南誰能提供免費場地';await page.nodes.get('search').emit('input');assert.equal(page.nodes.get('card-grid').innerHTML,'');assert.match(page.nodes.get('search-explanation').textContent,/尚未支援/);
