@@ -1,5 +1,7 @@
 # 名片管理網站草稿
 
+完整產品目標、四入口、資料規格、批次流程、驗收關卡與接手檢查見 [HANDOFF.md](HANDOFF.md)。保留最初六項目標，不以目前畫面原型代表完整交付。
+
 GitHub 專案為 Adam 建立的 `break777tw-sys/SENJIE`。網站顯示名稱與正式網站網址仍待 Adam 確認，不自動啟用 Pages 或其他網站發布。本目錄名稱僅為本地工作目錄。
 
 ## 已實作
@@ -20,7 +22,7 @@ Google 部署步驟見 [google-apps-script/SETUP.md](google-apps-script/SETUP.md
 
 ## 正式架構界線
 
-- GitHub 儲存程式碼，初始採私人專案；真實名片、原圖、憑證及金鑰不得提交。
+- GitHub 現有儲存庫為公開專案，只保存程式碼與虛構測試資料；真實名片、原圖、憑證、金鑰及私人授權紀錄不得提交。
 - Google Sheets 保存唯一正式資料；Drive 保存原圖；不加入 Google 聯絡人。
 - 網站、ChatGPT、LINE 與 dot 經同一份版本化資料合約讀寫。網站必須由後端授權，不能把私人資料預先打包進靜態檔。
 - LINE 的既有接收服務尚待盤點。需驗證原始請求與 LINE 簽章，限制授權使用者，依 webhookEventId 去重，儘快保存媒體，再非同步辨識。Apps Script 不直接承擔未驗證的 LINE webhook。
