@@ -42,13 +42,17 @@ export async function mountApp(backend,options={}){
  };
  const calls=[];
  const bridge=new Proxy({},{get(_,method){if(method==='withSuccessHandler')return success=>({withFailureHandler:failure=>new Proxy({},{get:(_,name)=>payload=>{calls.push({name,payload});Promise.resolve().then(()=>backend.c[name](payload==null?payload:JSON.parse(JSON.stringify(payload)))).then(result=>success(JSON.parse(JSON.stringify(result))),failure);}})});}});
- const window={location:{hash:options.hash||''},handlers:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);}};
+ const frames=new Map();let frameId=0;const scrollCalls=[];
+ const window={location:{hash:options.hash||''},innerWidth:options.width??1280,scrollY:options.scrollY??0,handlers:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);},matchMedia(){return {matches:this.innerWidth<=700};},requestAnimationFrame(fn){frames.set(++frameId,fn);return frameId;},cancelAnimationFrame(id){frames.delete(id);},scrollTo(x,y){scrollCalls.push({x,y});this.scrollY=y;}};
+ for(const view of views){const properties=new Map();view.style={setProperty:(name,value)=>properties.set(name,value),getPropertyValue:name=>properties.get(name)||''};view.getBoundingClientRect=()=>({top:486-window.scrollY});}
+ const flushFrames=()=>{const pending=[...frames.values()];frames.clear();pending.forEach(fn=>fn());};
  const context=vm.createContext({document,window,google:{script:{run:bridge}},crypto:{randomUUID},FormData:class{constructor(target){return target.elements.map(f=>[f.name,f.value]);}},Date,console,URL:{revokeObjectURL(){}},setTimeout:()=>1,clearTimeout(){}});
  vm.runInContext(options.script||source,context);
- const settled=()=>new Promise(resolve=>setImmediate(resolve));await settled();await settled();
- return {nodes,form,fields,submit,calls,context,settled,navigation:{views,buttons,links},
-  async navigate(view){const control=buttons.find(b=>b.dataset.view===view)||links.find(l=>l.dataset.route===view);if(!control)throw new Error('No navigation control: '+view);await control.click();},
-  async setHash(hash){window.location.hash=hash;for(const fn of window.handlers.hashchange||[])await fn();},
+ const settled=()=>new Promise(resolve=>setImmediate(resolve));await settled();await settled();flushFrames();
+ return {nodes,form,fields,submit,calls,context,settled,flushFrames,scrollCalls,navigation:{views,buttons,links},
+  async navigate(view){const control=buttons.find(b=>b.dataset.view===view)||links.find(l=>l.dataset.route===view);if(!control)throw new Error('No navigation control: '+view);await control.click();flushFrames();},
+  async emitWindow(type){for(const fn of window.handlers[type]||[])await fn();flushFrames();},
+  async setHash(hash){window.location.hash=hash;for(const fn of window.handlers.hashchange||[])await fn();flushFrames();},
   async openPerson(id){const target=new Element();target.dataset.id=id;for(const fn of document.handlers.click||[])await fn({target});},
   selectSources(sources){selected=sources.map((s,i)=>{const node=new Element();node.dataset.source=s.id;const side=new Element();side.value=i?'反面':'正面';sides.set(s.id,side);return node;});},
   async openReview(){await nodes.get('review-selected').click();},

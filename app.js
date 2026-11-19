@@ -8,7 +8,18 @@ let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false;
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
 const routeLabels={home:'SENJIE 總入口',...labels};let activeView=null;
+let routeScrollFrame=null;
 const routeFromHash=()=>Object.hasOwn(routeLabels,window.location.hash.slice(1))?window.location.hash.slice(1):'home';
+function restoreNarrowEntry(){
+  if(!window.matchMedia('(max-width: 700px)').matches)return;
+  const section=$('#'+activeView);
+  // A direct fragment may be positioned after load. Offset the target back to
+  // the document start rather than letting it skip the in-flow mobile menu.
+  section.style.setProperty('--route-start',Math.max(0,section.getBoundingClientRect().top+window.scrollY)+'px');
+  if(routeScrollFrame!==null)window.cancelAnimationFrame(routeScrollFrame);
+  // Run after fragment positioning/layout so mobile's in-flow navigation stays visible.
+  routeScrollFrame=window.requestAnimationFrame(()=>{routeScrollFrame=null;window.scrollTo(0,0);});
+}
 function showView(view){
   if(!Object.hasOwn(routeLabels,view))view='home';
   if(activeView===view)return;
@@ -23,6 +34,7 @@ function showView(view){
 function navigate(view){
   if(!Object.hasOwn(routeLabels,view))return;
   showView(view);if(window.location.hash!=='#'+view)window.location.hash='#'+view;
+  restoreNarrowEntry();
 }
 function render(){
   $('#count-all').textContent=cards.length;$('#count-review').textContent=cards.filter(c=>c.status==='待確認').length;$('#count-follow').textContent=cards.filter(c=>c.next).length;
@@ -50,8 +62,10 @@ function notify(message){$('#toast').textContent=message;$('#toast').hidden=fals
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>navigate(button.dataset.view)));
 document.querySelectorAll('[data-route]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();navigate(link.dataset.route);}));
 $('#card-brand').addEventListener('click',event=>{event.preventDefault();navigate('cards');});
-window.addEventListener('hashchange',()=>showView(routeFromHash()));
-showView(routeFromHash());
+window.addEventListener('hashchange',()=>{showView(routeFromHash());restoreNarrowEntry();});
+window.addEventListener('load',restoreNarrowEntry);
+window.addEventListener('pageshow',restoreNarrowEntry);
+showView(routeFromHash());restoreNarrowEntry();
 for(const selector of ['#search','#category','#status'])$(selector).addEventListener('input',render);
 $('#layout').addEventListener('click',()=>{const list=$('#card-grid').classList.toggle('list');$('#layout').textContent=list?'切換卡片':'切換列表';$('#layout').setAttribute('aria-pressed',String(list));});
 $('#new-card').addEventListener('click',()=>openCard(null));$('#close-detail').addEventListener('click',()=>$('#detail').close());
