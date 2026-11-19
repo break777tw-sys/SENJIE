@@ -3,7 +3,7 @@ import { filterCards, findDuplicates, demoCards } from './model.js';
 import { createTransport } from './transport.js';
 const transport=createTransport();
 let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.length, saving=false, pendingRequest=null, loaded=!transport;
-let importSources=[],reviewSources=null,importBusy=false;
+let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false;
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
 function render(){
@@ -54,7 +54,16 @@ $('#detail-form').addEventListener('submit',async e=>{
     const at=cards.findIndex(c=>c.id===saved.id);if(at<0)cards.push(saved);else cards[at]=saved;
     render();$('#detail').close();notify(transport?'已保存至 Google，並通過讀回驗證。':'已套用本次頁面修改；尚未寫入 Google。');
     if(reviewSources)await loadImports();
-  }catch(error){notify(error.message||'保存失敗，未確認歸檔。');}
+  }catch(error){
+    const message=error.message||'保存失敗，未確認歸檔。';
+    if(reviewSources&&transport){
+      try{await loadImports();
+        if(archiveRecoveries.some(r=>r.sources.some(s=>reviewSources.some(x=>x.id===s.id)))){
+          $('#detail').close();notify('人物已保存，來源尚未完成。請到收件匣「續辦來源歸檔」，不必重新建人。');
+        }else notify(message);
+      }catch{notify(message+' 請重新讀取收件匣檢查續辦項目。');}
+    }else notify(message);
+  }
   finally{saving=false;submit.disabled=false;}
 });
 const previewUrls=[];
@@ -79,14 +88,25 @@ async function receive(files){
   finally{importBusy=false;$('#photos').disabled=false;$('#photos').value='';$('#import-progress').textContent=`批次 ${batchId}：完成 ${added} 次收件${rejected?`；拒絕 ${rejected} 個格式／大小不符檔案`:''}。關閉頁面會中止未上傳部分；已保存來源可重新讀取。`;$('#retry-upload').hidden=!window.pendingPhotoRetry;}
 }
 function renderImports(){
+  $('#archive-recoveries').innerHTML=archiveRecoveries.map(r=>`<article class="callout"><strong>人物已保存，來源待補齊：${escape(r.personName)}</strong><p>${escape(r.personId)} · ${r.sources.length} 面來源，待補 ${r.pendingSourceIds.length} 面。續辦沿用原人物及確認回條。</p>${r.blockedReason?`<p>${escape(r.blockedReason)}</p>`:`<button type="button" class="primary" data-resume="${escape(r.requestId)}">續辦來源歸檔</button>`}</article>`).join('');
   const receipts=importSources.reduce((n,s)=>n+s.receipts.length,0),archived=importSources.filter(s=>s.state==='archived');
   $('#import-counts').textContent=`累計收件 ${receipts} 次 · 不重複原圖 ${importSources.length} 張 · 已確認實體卡 ${new Set(archived.map(s=>s.physicalCardId)).size} 張 · 已歸檔人物 ${new Set(archived.map(s=>s.personId)).size} 位`;
   $('#jobs').innerHTML=importSources.map(s=>`<article class="job"><div class="job-info"><strong>${escape(s.receipts[0].name)}</strong><p>${escape(s.id)} · 收件 ${s.receipts.length} 次 · ${escape(({saved:'原圖已保存',recognizing:'辨識待續',ready:'辨識完成／待確認',error:'辨識未完成',archived:'已確認歸檔'})[s.state])}</p><a href="${escape(s.originalUrl)}" target="_blank" rel="noopener">開啟 Drive 原圖</a><p>${escape(s.error||'')} · QR ${escape(s.qrStatus)}</p><details><summary>辨識原文與疑義</summary><pre>${escape(s.ocrText||'尚無可用辨識文字；可對照原圖手動確認。')}</pre><p>自動候選值仍待逐欄核對。無法確定的欄位留白；一張照片含多張實體卡時請先拆分，不可整張歸為一人。</p></details>${s.state==='archived'?`<p>實體卡 ${escape(s.physicalCardId)} · 人物 ${escape(s.personId)}</p>`:`<label><input type="checkbox" data-source="${escape(s.id)}"> 選取此來源</label><label>面別<select data-side="${escape(s.id)}"><option>正面</option><option>反面</option><option>補充</option></select></label><button type="button" class="secondary" data-recognize="${escape(s.id)}">重新辨識／續辦</button>`}</div></article>`).join('');
 }
 async function loadImports(){
-  try{const result=await transport.imports();importSources=result.sources;renderImports();}
-  catch(error){importSources=[];renderImports();$('#import-progress').textContent=error.message;throw error;}
+  try{const result=await transport.imports();importSources=result.sources;archiveRecoveries=result.recoveries||[];renderImports();}
+  catch(error){importSources=[];archiveRecoveries=[];renderImports();$('#import-progress').textContent=error.message;throw error;}
 }
+$('#archive-recoveries').addEventListener('click',async e=>{
+  const button=e.target.closest('[data-resume]');if(!button||importBusy||saving)return;
+  importBusy=true;button.disabled=true;
+  try{
+    const result=await transport.resume(button.dataset.resume),at=cards.findIndex(c=>c.id===result.record.id);
+    if(at<0)cards.push(result.record);else cards[at]=result.record;
+    render();await loadImports();notify('已補齊來源歸檔，保留原人物與實體卡編號。');
+  }catch(error){notify(error.message);try{await loadImports();}catch{}}
+  finally{importBusy=false;button.disabled=false;}
+});
 $('#reload-imports').addEventListener('click',()=>loadImports().catch(error=>notify(error.message)));
 $('#retry-upload').addEventListener('click',async()=>{if(importBusy||!window.pendingPhotoRetry)return;importBusy=true;try{await transport.upload(window.pendingPhotoRetry);window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;await loadImports();notify('原圖重試已讀回；可繼續辨識。');}catch(error){notify(error.message);}finally{importBusy=false;}});
 $('#jobs').addEventListener('click',async e=>{const id=e.target.closest('[data-recognize]')?.dataset.recognize;if(!id||importBusy)return;importBusy=true;try{notify('正在辨識已保存的原圖。');await transport.recognize(id);await loadImports();}catch(error){notify(error.message);}finally{importBusy=false;}});
@@ -94,6 +114,7 @@ $('#review-selected').addEventListener('click',()=>{
   if(importBusy||!loaded)return;
   const selected=[...document.querySelectorAll('[data-source]:checked')].map(i=>({id:i.dataset.source,side:document.querySelector(`[data-side="${i.dataset.source}"]`).value}));
   if(!selected.length||selected.length>10){notify('請選取同一張實體名片的 1–10 張來源。');return;}
+  if(archiveRecoveries.some(r=>r.sources.some(s=>selected.some(x=>x.id===s.id)))){notify('這些來源的人物已保存，請先使用收件匣的「續辦來源歸檔」。');return;}
   openCard(null);reviewSources=selected;editing.status='已確認';
   $('#detail-title').textContent='核對同一張名片後歸檔';$('#detail-form').elements.status.value='已確認';
   $('#archive-confirmation').hidden=false;$('#review-evidence').hidden=false;$('#confirm-one-card').checked=false;
@@ -121,7 +142,7 @@ async function refresh(){
     $('.notice').textContent=`${response.dataLabel||'Google 資料'} · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。照片請到收件匣保存並確認。LINE 尚未接通。`;
     await loadImports();
   }catch(error){
-    loaded=false;cards=[];importSources=[];render();renderImports();$('.mode').textContent='Google 讀取失敗';
+    loaded=false;cards=[];importSources=[];archiveRecoveries=[];render();renderImports();$('.mode').textContent='Google 讀取失敗';
     $('.notice').textContent=error.message+' 本頁未顯示舊資料或示範名片。';
   }finally{$('#new-card').disabled=!loaded;}
 }

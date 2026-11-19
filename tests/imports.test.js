@@ -1,22 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
-import {readFileSync} from 'node:fs';
-import {createHash} from 'node:crypto';
-const code=['Code.gs','Imports.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
+import {createFakeGoogle as setup} from './helpers/fake-google.js';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64');
-function setup(){
- let email='owner@example.test',counter=0,failSourceWrite=false,failOCR=false;
- const sheets={},files=new Map();
- function sheet(name,headers){const rows=[headers];const api={rows,getLastRow:()=>rows.length,setFrozenRows:()=>{},getRange:(r,c,n=1,w=1)=>({getValues:()=>rows.slice(r-1,r-1+n).map(row=>row.slice(c-1,c-1+w)),getValue:()=>rows[r-1]?.[c-1],setValues:data=>{if(name==='Imports'&&failSourceWrite){failSourceWrite=false;throw Error('simulated source write failure');}data.forEach((line,i)=>{rows[r-1+i]??=[];line.forEach((v,j)=>rows[r-1+i][c-1+j]=v);});}})};sheets[name]=api;return api;}
- sheet('Records',['人物編號','版本','請求編號','修改時間','修改者','資料JSON']);
- const blob=(bytes,mime,name)=>({getBytes:()=>Array.from(bytes),getContentType:()=>mime,setName(value){name=value;return this;},getName:()=>name});
- const addFile=(b,name)=>{const id='file-'+(++counter);const file={getId:()=>id,getUrl:()=>`https://drive.google.com/file/d/${id}/view`,getBlob:()=>b,name};files.set(id,file);return file;};
- const folder={getId:()=> 'private-folder',getFilesByName:name=>{const matching=[...files.values()].filter(f=>f.name===name);return {hasNext:()=>matching.length>0,next:()=>matching.shift()};},createFile:b=>addFile(b,b.getName())};
- const context=vm.createContext({Date,JSON,Object,String,Number,Array,Error,Set,Session:{getActiveUser:()=>({getEmail:()=>email})},PropertiesService:{getScriptProperties:()=>({getProperty:key=>({ALLOWED_EMAILS:'owner@example.test',SPREADSHEET_ID:'fake-sheet',IMPORT_FOLDER_ID:'private-folder'}[key])})},SpreadsheetApp:{openById:()=>({getSheetByName:name=>sheets[name],insertSheet:name=>sheet(name,[])}),flush:()=>{}},LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})},Utilities:{getUuid:()=>`uuid-${++counter}`,DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,bytes)=>Array.from(createHash('sha256').update(Buffer.from(bytes)).digest()),base64Decode:s=>Array.from(Buffer.from(s,'base64')),newBlob:blob},DriveApp:{getFolderById:()=>folder,getFileById:id=>{if(!files.has(id))throw Error('not found');return files.get(id);}},Drive:{Files:{create:meta=>{if(failOCR)throw Error('OCR unavailable');return {id:addFile(blob([],meta.mimeType,meta.name),meta.name).getId()};}}},DocumentApp:{openById:()=>({getBody:()=>({getText:()=> 'Name: Fictional Person\nCompany: Example Invalid\nTel: 0900000022\ncard@example.invalid'})})}});
- vm.runInContext(code,context);
- return {c:context,sheets,files,setEmail:value=>email=value,failNextSourceWrite:()=>failSourceWrite=true,setOCRFailure:value=>failOCR=value};
-}
 const upload=(n=1,data=png)=>({requestId:'upload-request-00000'+n,batchId:'batch-request-000001',name:'fictional-'+n+'.png',mime:'image/png',data:data.toString('base64')});
 const card={name:'Fictional Person',company:'Example Invalid',status:'已確認',phone:'0900000022'};
 const archive=(sources,extra={})=>({requestId:'archive-request-000001',sources:sources.map((s,i)=>({id:s.id,side:i?'反面':'正面'})),card,confirmed:true,reviewedFields:Object.keys(card),...extra});

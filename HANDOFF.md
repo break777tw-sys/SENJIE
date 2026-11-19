@@ -1,5 +1,13 @@
 # SENJIE 完整目標與工程接手紀錄
 
+## 最新修正：重開頁面後續辦來源歸檔（本機候選）
+
+人物保存成功、來源寫入失敗時，收件匣會從 Records 原始確認回條重建「續辦來源歸檔」。使用者重開頁面後可直接補齊兩面，沿用原 requestId、人物與實體卡編號，不重新提交人物表單或觸發新增的重複檢查。後端驗證原圖／來源／確認身分；新操作編號不得搶用尚待續辦的來源。續辦也不覆蓋人物後來的修改版本。一般新增仍拒絕疑似重複，不自動合併。
+
+全套35項本機測試與建置通過；新增7項回歸涵蓋來源0／1面完成後故障、丟棄頁面記憶體重開、續辦再中斷、來源衝突、權限拒絕、保留最新人物版本及原有重複檢查。tests/archive-recovery.test.js透過DOM facsimile執行原app.js／transport.js事件與fake Google，這不是瀏覽器或真實Google驗收。先前僅以原操作編號直接重試後端的測試，不能證明重開頁面的使用者流程，現已補上。
+
+複驗：`node --test tests/archive-recovery.test.js`，再跑 `node --test tests/*.test.js` 與 `node scripts/build.mjs`。測試內使用公開虛構正反面PNG，先在第一／第二面標記時注入失敗，再建立全新的client狀態，從收件匣續辦並檢查一人／一卡／兩面。此修正只在本機與GitHub候選，未貼回Google或部署；完整Drive／Documents放行請求仍暫停，最小權限實驗仍未完成Google實測。
+
 ## 本輪限制：暫停完整 Drive／文件授權，保留現行網站
 
 先前照片候選版的完整 Drive／Documents 放行請求已暫停；請勿依較早段落操作未驗證提示或部署該候選。現行私人網站保持原狀。本輪只增加 [drive.file離線實驗](experiments/drive-file/README.md)，原圖、OCR與案外拒絕的7項fake測試通過，全套28項；沒有Google真實最小scope／OCR回條。未改雲端編輯器、授權、部署或分享。需要同一應用程式的逐檔案授權與Picker前置條件，目前尚未具備。以下較早照片進度保留為歷史，由本段限制優先。

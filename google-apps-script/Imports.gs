@@ -46,7 +46,51 @@ function imageBlob_(data,mime,name){
   if(!valid||bytes.length>10*1024*1024)throw new Error('圖片內容或大小不符（原圖上限 10 MB）。');
   return Utilities.newBlob(bytes,mime,name);
 }
-function listImports(){return importLock_(user=>({sources:sources_(importSheet_(user)).filter(s=>s.actor===user.email)}));}
+// The committed Records revision is the durable receipt, even if no Imports row
+// was marked archived. Never depend on browser memory to recover its requestId.
+function photoArchiveRevisions_(revisions,user){
+  return revisions.filter(r=>r.actor===user.email&&r.record.version===1&&r.record.provenance?.physicalCardId&&Array.isArray(r.record.provenance.sources));
+}
+function archiveSourcePlan_(revision,all,user){
+  const p=revision.record.provenance;
+  if(revision.actor!==user.email||p.confirmedBy!==user.email||!p.sources.length||p.sources.length>10||new Set(p.sources.map(s=>s.id)).size!==p.sources.length)throw new Error('歸檔回條不完整，停止續辦。');
+  return p.sources.map(saved=>{
+    const source=all.find(s=>s.id===saved.id&&s.actor===user.email);
+    if(!source||source.hash!==saved.sha256||source.originalId!==saved.originalId)throw new Error('來源不存在或原圖與歸檔回條不符，停止續辦。');
+    if(source.state==='archived'&&(source.archiveRequestId!==revision.requestId||source.personId!==revision.record.id||source.physicalCardId!==p.physicalCardId))throw new Error('來源已連到不同歸檔，停止續辦。');
+    return source;
+  });
+}
+function pendingPhotoArchives_(revisions,all,user){
+  return photoArchiveRevisions_(revisions,user).flatMap(r=>{
+    let selected,blockedReason='';
+    try{selected=archiveSourcePlan_(r,all,user);}catch(error){blockedReason=error.message;}
+    const pending=selected?selected.filter(s=>s.state!=='archived').map(s=>s.id):r.record.provenance.sources.map(s=>s.id);
+    if(!pending.length&&!blockedReason)return [];
+    return [{requestId:r.requestId,personId:r.record.id,personName:r.record.name,physicalCardId:r.record.provenance.physicalCardId,sources:r.record.provenance.sources,pendingSourceIds:pending,blockedReason}];
+  });
+}
+function finishPhotoArchive_(sheet,all,revision,user){
+  // Validate every side before writing any side. A partial failure can be retried
+  // from this same immutable Records receipt without adding another person row.
+  const selected=archiveSourcePlan_(revision,all,user),p=revision.record.provenance;
+  selected.forEach(s=>{if(s.state!=='archived')appendSource_(sheet,{...s,state:'archived',personId:revision.record.id,physicalCardId:p.physicalCardId,archiveRequestId:revision.requestId,confirmedAt:p.confirmedAt});});
+  return selected.length;
+}
+function listImports(){return importLock_(user=>{
+  const all=sources_(importSheet_(user)),revisions=readRevisions_(records_(user));
+  return {sources:all.filter(s=>s.actor===user.email),recoveries:pendingPhotoArchives_(revisions,all,user)};
+});}
+function resumePhotoArchive(request){return importLock_(user=>{
+  if(!request||typeof request.requestId!=='string'||!/^[A-Za-z0-9-]{16,100}$/.test(request.requestId))throw new Error('缺少有效的續辦操作編號。');
+  const revisions=readRevisions_(records_(user));
+  const revision=photoArchiveRevisions_(revisions,user).find(r=>r.requestId===request.requestId);
+  if(!revision)throw new Error('找不到此身分已確認的人物歸檔回條。');
+  const sheet=importSheet_(user),sourceCount=finishPhotoArchive_(sheet,sources_(sheet),revision,user);
+  // A person may have been edited since the failed archive; do not downgrade it.
+  const record=latest_(revisions).find(r=>r.id===revision.record.id);
+  return {record,physicalCardId:revision.record.provenance.physicalCardId,sourceCount,replayed:true};
+});}
 function uploadPhoto(request){return importLock_(user=>{
   if(!request||!/^[A-Za-z0-9-]{16,100}$/.test(request.requestId)||!/^[A-Za-z0-9-]{16,100}$/.test(request.batchId)||typeof request.name!=='string'||request.name.length>180)throw new Error('上傳操作／批次編號或檔名不符。');
   const blob=imageBlob_(request.data,request.mime,'original'),hash=hashBytes_(blob.getBytes());
@@ -100,8 +144,9 @@ function archivePhotos(request){return importLock_(user=>{
   if(request.sources.some(s=>!['正面','反面','補充'].includes(s.side)))throw new Error('請指定照片面別。');
   const sheet=importSheet_(user),all=sources_(sheet),selected=request.sources.map(s=>all.find(x=>x.id===s.id&&x.actor===user.email));
   if(selected.some(s=>!s))throw new Error('來源不存在或無權存取。');
-  const existing=readRevisions_(records_(user)).find(r=>r.requestId===request.requestId&&r.actor===user.email);
+  const revisions=readRevisions_(records_(user)),existing=revisions.find(r=>r.requestId===request.requestId&&r.actor===user.email);
   if(selected.some(s=>s.state==='archived'&&s.archiveRequestId!==request.requestId))throw new Error('來源已歸檔；請從原人物修改，不重複建檔。');
+  if(photoArchiveRevisions_(revisions,user).some(r=>r.requestId!==request.requestId&&r.record.provenance.sources.some(saved=>selected.some(s=>s.id===saved.id))))throw new Error('人物已保存；請從收件匣「續辦來源歸檔」補齊原紀錄，不重新建人。');
   const signature=JSON.stringify(request.sources.slice().sort((a,b)=>a.id.localeCompare(b.id)));
   if(existing&&existing.record.provenance?.signature!==signature)throw new Error('歸檔操作編號已用於其他來源。');
   const now=new Date().toISOString(),physicalCardId=existing?.record.provenance?.physicalCardId||'CARD-'+Utilities.getUuid();
@@ -109,6 +154,6 @@ function archivePhotos(request){return importLock_(user=>{
   const provenance={physicalCardId,signature,sources:selected.map((s,i)=>({id:s.id,side:request.sources[i].side,originalId:s.originalId,originalUrl:s.originalUrl,sha256:s.hash,recognizedAt:s.recognizedAt||null})),fields,confirmedAt:now,confirmedBy:user.email};
   // Card append first; retry reuses its requestId after a partial source-log failure.
   const result=saveCardLocked_({requestId:request.requestId,card:clean},user,provenance);
-  selected.forEach(s=>{if(s.state!=='archived')appendSource_(sheet,{...s,state:'archived',personId:result.record.id,physicalCardId,archiveRequestId:request.requestId,confirmedAt:now});});
+  finishPhotoArchive_(sheet,all,{requestId:request.requestId,actor:user.email,record:result.record},user);
   return {...result,physicalCardId,sourceCount:selected.length};
 });}
