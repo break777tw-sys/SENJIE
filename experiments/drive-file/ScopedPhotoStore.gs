@@ -1,8 +1,8 @@
 /** Offline-reviewed experiment. NOT assembled into the website or cloud editor.
  * Requires only Advanced Drive v3 + drive.file. No DriveApp, DocumentApp,
  * tokens, sharing, deletion, arbitrary URL fetch, or My Drive/root fallback.
- * registry must be persisted by the future authenticated integration; the
- * in-memory registry used by local tests proves no cloud durability or OAuth.
+ * The local lab persists registry and fake media to disk; that proves no cloud
+ * durability, OAuth isolation or OCR accuracy. No production integration yet.
  */
 function createScopedPhotoStore_(files,utilities,parentId,registry){
   if(typeof parentId!=='string'||!/^[A-Za-z0-9_-]{8,200}$/.test(parentId)||parentId==='root')throw new Error('需要精確的本案資料夾，不使用根目錄。');
@@ -31,26 +31,48 @@ function createScopedPhotoStore_(files,utilities,parentId,registry){
     checkMetadata(meta,mime);
     const actual=files.get(meta.id,{alt:'media'});
     if(typeof actual?.getBytes!=='function'||hash(actual.getBytes())!==digest)throw new Error('原圖位元組讀回不符。');
-    const source={id:meta.id,parentId,hash:digest,mime,url:meta.webViewLink};
+    const prior=registry.get(meta.id);
+    if(prior&&(prior.hash!==digest||prior.parentId!==parentId||prior.mime!==mime))throw new Error('既有來源紀錄與原圖不符。');
+    const source={...prior,id:meta.id,parentId,hash:digest,mime,url:meta.webViewLink};
     registry.save(source.id,source);return source;
   }
-  function recognize(sourceId){
+  function readOriginal(sourceId){
     const source=registry.get(sourceId);
     // No metadata/API request for a caller-supplied ID outside this project registry.
     if(!source||source.id!==sourceId||source.parentId!==parentId)throw new Error('來源不屬本案，拒絕讀取。');
     parent();
     const meta=files.get(sourceId,{fields:'id,mimeType,parents,trashed,webViewLink'});checkMetadata(meta,source.mime);
+    if(meta.id!==sourceId)throw new Error('原圖編號不符。');
     const blob=files.get(sourceId,{alt:'media'});
     if(typeof blob?.getBytes!=='function'||hash(blob.getBytes())!==source.hash)throw new Error('原圖已變更，停止辨識。');
+    return {source,bytes:blob.getBytes(),blob};
+  }
+  function readText(docId){
+    const exported=files.export(docId,'text/plain',{alt:'media'});
+    if(typeof exported?.getDataAsString!=='function'||typeof exported?.getBytes!=='function')throw new Error('Google匯出回應尚未驗證為文字Blob，停止而不猜測。');
+    const text=exported.getDataAsString('UTF-8');
+    if(typeof text!=='string'||text.length>16000)throw new Error('辨識文字格式或長度不符。');
+    return {text,textHash:hash(exported.getBytes())};
+  }
+  function recognize(sourceId){
+    const {source,blob}=readOriginal(sourceId);
     let doc=find('ocr',source.hash);
     if(!doc)doc=files.create({name:source.hash+'-OCR',mimeType:'application/vnd.google-apps.document',parents:[parentId],appProperties:{senjieProbeRole:'ocr',sourceSHA256:source.hash}},blob,{ocrLanguage:'zh',fields:'id,mimeType,parents,trashed,webViewLink'});
     checkMetadata(doc,'application/vnd.google-apps.document');
     // API supports drive.file; actual Apps Script media-return binding remains unverified.
-    const exported=files.export(doc.id,'text/plain',{alt:'media'});
-    if(typeof exported?.getDataAsString!=='function')throw new Error('Google匯出回應尚未驗證為文字Blob，停止而不猜測。');
-    const text=exported.getDataAsString('UTF-8');
-    if(typeof text!=='string'||text.length>16000)throw new Error('辨識文字格式或長度不符。');
-    const result={...source,ocrId:doc.id,ocrUrl:doc.webViewLink,ocrText:text};registry.save(sourceId,result);return result;
+    const {text,textHash}=readText(doc.id);
+    const result={...source,ocrId:doc.id,ocrUrl:doc.webViewLink,ocrText:text,ocrSHA256:textHash};registry.save(sourceId,result);return result;
   }
-  return {preserve,recognize};
+  function readResult(sourceId){
+    const source=registry.get(sourceId);
+    if(!source||source.id!==sourceId||source.parentId!==parentId)throw new Error('來源不屬本案，拒絕讀取。');
+    if(!source.ocrId||!source.ocrSHA256)throw new Error('此來源尚無已保存的辨識結果。');
+    parent();
+    const meta=files.get(source.ocrId,{fields:'id,mimeType,parents,trashed,webViewLink,appProperties'});checkMetadata(meta,'application/vnd.google-apps.document');
+    if(meta.id!==source.ocrId||meta.appProperties?.sourceSHA256!==source.hash||meta.appProperties?.senjieProbeRole!=='ocr')throw new Error('辨識文件與原圖來源不符。');
+    const {text,textHash}=readText(source.ocrId);
+    if(textHash!==source.ocrSHA256)throw new Error('辨識結果已變更，停止讀取。');
+    return {...source,ocrText:text};
+  }
+  return {preserve,recognize,readOriginal,readResult};
 }

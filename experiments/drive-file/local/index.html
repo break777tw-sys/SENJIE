@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SENJIE 本機照片驗證</title>
+<style>body{font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;margin:0;color:#17372d;background:#f5f8f5}main{max-width:1000px;margin:auto;padding:28px}h1{margin-bottom:8px}.notice{background:#fff3ce;border:1px solid #dbbd6c;padding:16px;border-radius:12px}button,a{font:inherit}button{padding:10px 16px;border:1px solid #225e46;border-radius:8px;background:white;color:#225e46;cursor:pointer;margin:5px 8px 5px 0}button:disabled{opacity:.5;cursor:wait}#summary{background:#e4eee5;padding:14px;border-radius:10px}.source{border:1px solid #cddbcf;background:white;padding:18px;border-radius:12px;margin:18px 0}.source img{width:100%;max-width:500px;border:1px solid #e3e8e3}.source code{overflow-wrap:anywhere}.source pre{white-space:pre-wrap;background:#f1f4ef;padding:12px;overflow-wrap:anywhere}.muted{color:#5d7065}#message{min-height:28px;font-weight:600}</style></head>
+<body><main><p class="muted">同一 SENJIE · 僅限 Mac mini 本機驗證入口</p><h1>原圖與辨識結果讀回測試</h1>
+<div class="notice"><strong>本機模擬，沒有呼叫 Google，也沒有進行圖像辨識。</strong><br>此入口只載入專案內兩張公開虛構 PNG。原圖位元組、來源紀錄與明確標示的模擬 OCR 會保存到本機工作目錄；沒有真實名片上傳入口，也不建立人物。重新整理或關閉後重啟同一資料目錄，可讀回既有結果。</div>
+<p><button id="load-fixtures">載入虛構正面、反面、重複正面</button><button id="reload">重新讀取保存紀錄</button><button id="outside">測試案外檔拒絕</button></p>
+<p id="message" role="status"></p><div id="summary"></div><div id="sources"></div>
+<details><summary>本機模擬與真實驗收的界線</summary><p>原圖是實際 PNG 位元組，本機 HTTP 與檔案保存可實測。Drive 服務、Google 拒絕碼及 OCR 文字均為模擬，不代表 Google 最小權限或辨識正確率通過。Google OAuth／Picker／隔離雲端環境尚未建立；此頁無登入或權限放行操作。</p></details>
+</main><script src="/client.js"></script></body></html>
