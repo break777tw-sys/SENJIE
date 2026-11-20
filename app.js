@@ -172,8 +172,11 @@ async function refresh(){
     const response=await transport.list();
     if(response.schemaVersion!==1||!Array.isArray(response.cards))throw new Error('資料結構不符，停止載入。');
     cards=response.cards;loaded=true;render();
+    const photoReady=response.capabilities?.photoImport!==false&&transport.session?.capabilities?.photoImport!==false;
+    $('#photos').disabled=!photoReady;
+    $('#photo-access-note').hidden=photoReady;
     $('.mode').textContent='Google 資料已讀取';
-    $('.notice').textContent=`${response.dataLabel||'Google 資料'} · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。照片請到收件匣保存並確認。LINE 尚未接通。`;
+    $('.notice').textContent=`${response.dataLabel||'Google 資料'} · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。${photoReady?'照片請到收件匣保存並確認。':'目前可手動建檔與查詢；照片上傳尚未開放。'}`;
     await loadImports();
   }catch(error){
     loaded=false;cards=[];importSources=[];archiveRecoveries=[];render();renderImports();$('.mode').textContent='Google 讀取失敗';
@@ -187,5 +190,32 @@ if(transport){
   $('#detail-form [type="submit"]').textContent='保存至 Google';
   $('#refresh').hidden=false;
   document.querySelector('[data-connection="sheets"]').textContent='正在驗證';
-  refresh().then(()=>document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取 Google 資料':'讀取失敗');
+  if(transport.kind==='popup'){
+    $('#auth-panel').hidden=false;
+    transport.onConnectionChange(({connected,session})=>{
+      if(document.documentElement)document.documentElement.dataset.auth=connected?'signed-in':'signed-out';
+      $('#site-login').hidden=connected;$('#site-logout').hidden=!connected;
+      $('#auth-status').textContent=connected?'已登入 '+session.email:'登入後才能查看私人資料與使用建檔功能。';
+      $('#refresh').disabled=!connected;
+      if(!connected){
+        cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;
+        $('#detail').close();$('#detail-form').reset();$('#new-card').disabled=true;$('#photos').disabled=true;
+        $('#source-links').innerHTML='';$('#review-evidence').innerHTML='';$('#field-checks').innerHTML='';
+        render();renderImports();$('.mode').textContent='尚未登入';$('.notice').textContent='私人資料只會在帳號驗證通過後載入。';
+        document.querySelector('[data-connection="sheets"]').textContent='登入後讀取';
+      }
+    });
+    $('#site-login').addEventListener('click',async()=>{
+      $('#site-login').disabled=true;$('#auth-status').textContent='請在 Google 視窗完成登入。';
+      try{await transport.login();await refresh();document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取 Google 資料':'讀取失敗';}
+      catch(error){$('#auth-status').textContent=error.message;}
+      finally{$('#site-login').disabled=false;}
+    });
+    $('#site-logout').addEventListener('click',()=>{if(saving||importBusy){notify('請等待目前保存完成後再登出。');return;}transport.logout();});
+  }else{
+    if(document.documentElement)document.documentElement.dataset.auth='signed-in';
+    refresh().then(()=>document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取 Google 資料':'讀取失敗');
+  }
+}else if(document.documentElement){
+  document.documentElement.dataset.auth='demo';
 }

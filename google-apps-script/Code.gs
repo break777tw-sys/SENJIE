@@ -34,14 +34,16 @@ function latest_(revisions){
   revisions.forEach(({record})=>{if(!records[record.id]||records[record.id].version<record.version)records[record.id]=record;});
   return Object.values(records);
 }
-function doGet(){
+function doGet(e){
   authorize_();
+  if(e?.parameter?.senjieBridge==='1')return websiteBridge_(e.parameter);
   return HtmlService.createHtmlOutputFromFile('Index').setTitle('名片管理');
 }
 function listCards(){
   const user=authorize_();
   const dataLabel=String(PropertiesService.getScriptProperties().getProperty('DATA_LABEL')||'Google 資料');
-  return {schemaVersion:1,cards:latest_(readRevisions_(records_(user))),readAt:new Date().toISOString(),dataLabel};
+  const photoImport=PropertiesService.getScriptProperties().getProperty('PHOTO_IMPORTS_ENABLED')==='true';
+  return {schemaVersion:1,cards:latest_(readRevisions_(records_(user))),readAt:new Date().toISOString(),dataLabel,capabilities:{photoImport}};
 }
 function validateCard_(data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('名片格式不正確。');
