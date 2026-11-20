@@ -83,5 +83,6 @@ export function createPopupTransport(env=globalThis.window) {
     imports:()=>call('listImports'),upload:request=>call('uploadPhoto',request),
     recognize:sourceId=>call('recognizePhoto',{sourceId}),archive:request=>call('archivePhotos',request),
     resume:requestId=>call('resumePhotoArchive',{requestId}),
+    original:sourceId=>call('verifyPhoto',{sourceId}),
   };
 }

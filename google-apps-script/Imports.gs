@@ -95,13 +95,12 @@ function uploadPhoto(request){return importLock_(user=>{
   if(!request||!/^[A-Za-z0-9-]{16,100}$/.test(request.requestId)||!/^[A-Za-z0-9-]{16,100}$/.test(request.batchId)||typeof request.name!=='string'||request.name.length>180)throw new Error('上傳操作／批次編號或檔名不符。');
   const blob=imageBlob_(request.data,request.mime,'original'),hash=hashBytes_(blob.getBytes());
   const sheet=importSheet_(user),all=sources_(sheet),prior=all.find(s=>s.receipts.some(r=>r.requestId===request.requestId));
-  if(prior){if(prior.actor!==user.email||prior.hash!==hash||prior.mime!==request.mime||!prior.receipts.some(r=>r.requestId===request.requestId&&r.name===request.name&&r.batchId===request.batchId))throw new Error('上傳操作編號已用於不同內容。');return {source:prior,replayed:true};}
+  if(prior){if(prior.actor!==user.email||prior.hash!==hash||prior.mime!==request.mime||!prior.receipts.some(r=>r.requestId===request.requestId&&r.name===request.name&&r.batchId===request.batchId))throw new Error('上傳操作編號已用於不同內容。');verifySourcePhoto_(prior);return {source:prior,replayed:true};}
   let source=all.find(s=>s.hash===hash&&s.actor===user.email);
+  if(source)verifySourcePhoto_(source);
   if(!source){
-    const folder=importFolder_(),filename=hash+'.'+({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[request.mime]);
-    const matches=folder.getFilesByName(filename);let file=matches.hasNext()?matches.next():folder.createFile(blob.setName(filename));
-    if(matches.hasNext()||hashBytes_(file.getBlob().getBytes())!==hash)throw new Error('原圖存檔不一致，請檢查。');
-    source={id:'SRC-'+Utilities.getUuid(),hash,mime:request.mime,bytes:blob.getBytes().length,actor:user.email,originalId:file.getId(),originalUrl:file.getUrl(),receipts:[],state:'saved',ocrText:'',candidates:{},qrStatus:'未解碼',createdAt:new Date().toISOString()};
+    const file=preservePhoto_(blob,hash,request.mime);
+    source={id:'SRC-'+Utilities.getUuid(),hash,mime:request.mime,bytes:blob.getBytes().length,actor:user.email,originalId:file.id,originalUrl:file.webViewLink,receipts:[],state:'saved',ocrText:'',candidates:{},qrStatus:'未解碼',createdAt:new Date().toISOString()};
   }
   if(source.receipts.length>=100)throw new Error('同圖收件次數超過上限。');
   source={...source,receipts:[...source.receipts,{requestId:request.requestId,batchId:request.batchId,name:request.name,at:new Date().toISOString()}]};
@@ -119,6 +118,7 @@ function extractCandidates_(text){
 function recognizePhoto(request){return importLock_(user=>{
   const sheet=importSheet_(user),source=sources_(sheet).find(s=>s.id===request?.sourceId&&s.actor===user.email);
   if(!source)throw new Error('來源不存在或無權存取。');
+  if(PropertiesService.getScriptProperties().getProperty('PHOTO_OCR_ENABLED')!=='true')return {source,manualReview:true};
   if(source.state==='ready'||source.state==='archived')return {source};
   try{
     let blob=DriveApp.getFileById(source.originalId).getBlob();

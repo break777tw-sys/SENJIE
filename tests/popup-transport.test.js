@@ -48,7 +48,7 @@ test('專用啟用連結只留端點於此瀏覽器，立即移除網址片段�
   const c=browser();c.storage.set('senjie.private-endpoint.v1',invalid);await assert.rejects(c.transport.login(),/專用啟用連結/);assert.equal(c.env.opened,undefined);
  }
 });
-const code=['Code.gs','Imports.gs','WebsiteBridge.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
+const code=['Code.gs','Imports.gs','PhotoDrive.gs','WebsiteBridge.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
 test('真正後端bridge白名單：未登入session／CRUD拒絕；不可呼叫私人函式或任意Google函式',()=>{
  const env=createFakeGoogle({code});env.setEmail('stranger@example.test');
  for(const method of ['session','listCards','saveCard','uploadPhoto'])assert.throws(()=>env.c.websiteBridgeCall({method}),/拒絕存取/);

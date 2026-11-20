@@ -15,8 +15,8 @@ function websiteBridgeCall(request){
   if(!request||typeof request.method!=='string')throw new Error('操作格式不符。');
   const photos=PropertiesService.getScriptProperties().getProperty('PHOTO_IMPORTS_ENABLED')==='true';
   if(request.method==='session')return {authenticated:true,email:user.email,capabilities:{photoImport:photos}};
-  const methods={listCards,saveCard,listImports,uploadPhoto,recognizePhoto,archivePhotos,resumePhotoArchive};
+  const methods={listCards,saveCard,listImports,uploadPhoto,recognizePhoto,archivePhotos,resumePhotoArchive,verifyPhoto,photoReadiness};
   if(!Object.prototype.hasOwnProperty.call(methods,request.method))throw new Error('拒絕未開放的操作。');
-  if(['uploadPhoto','recognizePhoto','archivePhotos','resumePhotoArchive'].includes(request.method)&&!photos)throw new Error('照片建檔尚未開放；目前可先使用手動建檔與查詢。');
+  if(['uploadPhoto','recognizePhoto','archivePhotos','resumePhotoArchive','verifyPhoto'].includes(request.method)&&!photos)throw new Error('照片建檔尚未開放；目前可先使用手動建檔與查詢。');
   return methods[request.method](request.payload);
 }

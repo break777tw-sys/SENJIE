@@ -10,7 +10,7 @@
 
 | 順序 | 目標 | 做法 | 檢查點 |
 | --- | --- | --- | --- |
-| 1 | 使用同版來源 | Code.gs、Imports.gs、隔離測試的Acceptance.gs、WebsiteBridge.gs依序以單一換行組裝；`node scripts/build.mjs`生成Index.html，另保留WebsiteBridge.html | 來源固定提交與生成檔hash可讀回。Acceptance只用虛構資料隔離驗收。 |
+| 1 | 使用同版來源 | Code.gs、Imports.gs、PhotoDrive.gs、隔離測試的Acceptance.gs、WebsiteBridge.gs依序以單一換行組裝；`node scripts/build.mjs`生成Index.html，另保留WebsiteBridge.html | 來源固定提交與生成檔hash可讀回。Acceptance只用虛構資料隔離驗收。 |
 | 2 | 保留既有Google權限 | 使用website-runtime-manifest.json；既有允許帳號、表格與原圖資料夾設定留在私人Script Properties | USER_ACCESSING／MYSELF不變，沒有token、個資或私人ID進GitHub。 |
 | 3 | 接回同一網站 | 保存並核對同一Google部署；網站只發布公開程式與通用登入畫面；私人啟用連結另交擁有者 | 實際發布網址讀回，登入前無人物，錯誤不回退範例。 |
 | 4．複查機制 | 比較預期、實際與證據 | 原作者與原驗收者各記版本、人員、時間；實測登入、新增、保存、重開、修改再查、登出清空、撤除允許資格拒絕及還原；Google資料由另一連線讀回 | 僅列項實測通過可完成；手機、另一帳號、真實照片與ChatGPT／LINE接線各自標示，不混用模擬回條。 |
