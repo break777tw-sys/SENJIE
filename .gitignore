@@ -4,6 +4,8 @@
 node_modules/
 private-data/
 uploads/
+# Private Drive originals must never be published with website sources.
+/名片原圖/
 *.log
 .DS_Store
 dist/
