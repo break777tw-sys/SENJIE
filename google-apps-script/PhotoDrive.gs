@@ -37,11 +37,13 @@ function verifySourcePhoto_(source){
 }
 function photoReadiness(){
   authorize_();
+  // Visible in the original editor's execution log; no private IDs or tokens.
+  const report=value=>{console.log(JSON.stringify({photoReadiness:value}));return value;};
   const scope='https://www.googleapis.com/auth/drive.file';
   try{
     const info=ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL,[scope]);
-    if(info.getAuthorizationStatus()!==ScriptApp.AuthorizationStatus.NOT_REQUIRED)return {ready:false,code:'PHOTO_PERMISSION_REQUIRED'};
-  }catch(error){return {ready:false,code:'PHOTO_PERMISSION_REQUIRED'};}
-  try{photoParent_();}catch(error){return {ready:false,code:'PHOTO_FOLDER_REQUIRED'};}
-  return {ready:true,enabled:PropertiesService.getScriptProperties().getProperty('PHOTO_IMPORTS_ENABLED')==='true',ocrEnabled:PropertiesService.getScriptProperties().getProperty('PHOTO_OCR_ENABLED')==='true'};
+    if(info.getAuthorizationStatus()!==ScriptApp.AuthorizationStatus.NOT_REQUIRED)return report({ready:false,code:'PHOTO_PERMISSION_REQUIRED'});
+  }catch(error){return report({ready:false,code:'PHOTO_PERMISSION_REQUIRED'});}
+  try{photoParent_();}catch(error){return report({ready:false,code:'PHOTO_FOLDER_REQUIRED'});}
+  return report({ready:true,enabled:PropertiesService.getScriptProperties().getProperty('PHOTO_IMPORTS_ENABLED')==='true',ocrEnabled:PropertiesService.getScriptProperties().getProperty('PHOTO_OCR_ENABLED')==='true'});
 }
