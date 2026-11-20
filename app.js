@@ -4,7 +4,7 @@ import { searchPeople } from './search.js';
 import { createTransport } from './transport.js';
 const transport=createTransport();
 let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.length, saving=false, pendingRequest=null, loaded=!transport;
-let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false,photoReady=false,connectionEpoch=0;
+let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false,photoReady=false,photoOCR=false,connectionEpoch=0;
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
 const routeLabels={home:'SENJIE 總入口',...labels};let activeView=null;
@@ -128,11 +128,11 @@ async function receive(files){
     try{response=await transport.upload(request);}catch(error){if(epoch===connectionEpoch&&loaded)window.pendingPhotoRetry=request;throw error;}
     if(epoch!==connectionEpoch||!loaded)break;
     added++;await loadImports();
-    if(!['ready','archived'].includes(response.source.state)){
+    if(photoOCR&&!['ready','archived'].includes(response.source.state)){
       $('#import-progress').textContent=`原圖已保存，正在辨識：${file.name}`;
       const recognized=await transport.recognize(response.source.id);await loadImports();
       if(recognized.manualReview)notify('原圖已保存，請選取來源、逐欄核對後歸檔。');
-    }
+    }else if(!photoOCR)notify('原圖已保存，請選取來源、逐欄核對後歸檔。');
   }}catch(error){notify(error.message);}
   finally{importBusy=false;$('#photos').disabled=!loaded||!photoReady;$('#photos').value='';if(epoch!==connectionEpoch)return;$('#import-progress').textContent=`批次 ${batchId}：完成 ${added} 次收件${rejected?`；拒絕 ${rejected} 個格式／大小不符檔案`:''}。關閉頁面會中止未上傳部分；已保存來源可重新讀取。`;$('#retry-upload').hidden=!window.pendingPhotoRetry;}
 }
@@ -140,7 +140,7 @@ function renderImports(){
   $('#archive-recoveries').innerHTML=archiveRecoveries.map(r=>`<article class="callout"><strong>人物已保存，來源待補齊：${escape(r.personName)}</strong><p>${escape(r.personId)} · ${r.sources.length} 面來源，待補 ${r.pendingSourceIds.length} 面。續辦沿用原人物及確認回條。</p>${r.blockedReason?`<p>${escape(r.blockedReason)}</p>`:`<button type="button" class="primary" data-resume="${escape(r.requestId)}">續辦來源歸檔</button>`}</article>`).join('');
   const receipts=importSources.reduce((n,s)=>n+s.receipts.length,0),archived=importSources.filter(s=>s.state==='archived');
   $('#import-counts').textContent=`累計收件 ${receipts} 次 · 不重複原圖 ${importSources.length} 張 · 已確認實體卡 ${new Set(archived.map(s=>s.physicalCardId)).size} 張 · 已歸檔人物 ${new Set(archived.map(s=>s.personId)).size} 位`;
-  $('#jobs').innerHTML=importSources.map(s=>`<article class="job"><div class="job-info"><strong>${escape(s.receipts[0].name)}</strong><p>${escape(s.id)} · 收件 ${s.receipts.length} 次 · ${escape(({saved:'原圖已保存',recognizing:'辨識待續',ready:'辨識完成／待確認',error:'辨識未完成',archived:'已確認歸檔'})[s.state])}</p>${originalButton(s)}<p>${escape(s.error||'')} · QR ${escape(s.qrStatus)}</p><details><summary>辨識原文與疑義</summary><pre>${escape(s.ocrText||'尚無可用辨識文字；可對照原圖手動確認。')}</pre><p>自動候選值仍待逐欄核對。無法確定的欄位留白；一張照片含多張實體卡時請先拆分，不可整張歸為一人。</p></details>${s.state==='archived'?`<p>實體卡 ${escape(s.physicalCardId)} · 人物 ${escape(s.personId)}</p>`:`<label><input type="checkbox" data-source="${escape(s.id)}"> 選取此來源</label><label>面別<select data-side="${escape(s.id)}"><option>正面</option><option>反面</option><option>補充</option></select></label><button type="button" class="secondary" data-recognize="${escape(s.id)}">重新辨識／續辦</button>`}</div></article>`).join('');
+  $('#jobs').innerHTML=importSources.map(s=>`<article class="job"><div class="job-info"><strong>${escape(s.receipts[0].name)}</strong><p>${escape(s.id)} · 收件 ${s.receipts.length} 次 · ${escape(({saved:'原圖已保存',recognizing:'辨識待續',ready:'辨識完成／待確認',error:'辨識未完成',archived:'已確認歸檔'})[s.state])}</p>${originalButton(s)}<p>${escape(s.error||'')} · QR ${escape(s.qrStatus)}</p><details><summary>辨識原文與疑義</summary><pre>${escape(s.ocrText||'尚無可用辨識文字；可對照原圖手動確認。')}</pre><p>自動候選值仍待逐欄核對。無法確定的欄位留白；一張照片含多張實體卡時請先拆分，不可整張歸為一人。</p></details>${s.state==='archived'?`<p>實體卡 ${escape(s.physicalCardId)} · 人物 ${escape(s.personId)}</p>`:`<label><input type="checkbox" data-source="${escape(s.id)}"> 選取此來源</label><label>面別<select data-side="${escape(s.id)}"><option>正面</option><option>反面</option><option>補充</option></select></label>${photoOCR?`<button type="button" class="secondary" data-recognize="${escape(s.id)}">重新辨識／續辦</button>`:``}`}</div></article>`).join('');
 }
 async function loadImports(){
   const epoch=connectionEpoch;
@@ -190,6 +190,7 @@ async function refresh(){
     if(response.schemaVersion!==1||!Array.isArray(response.cards))throw new Error('資料結構不符，停止載入。');
     cards=response.cards;loaded=true;render();
     photoReady=response.capabilities?.photoImport!==false&&transport.session?.capabilities?.photoImport!==false;
+    photoOCR=response.capabilities?.photoOCR===true;
     $('#photos').disabled=!photoReady;
     $('#photo-access-note').hidden=photoReady;
     $('.mode').textContent='Google 資料已讀取';
@@ -216,7 +217,7 @@ if(transport){
       $('#auth-status').textContent=connected?'已登入 '+session.email:'登入後才能查看私人資料與使用建檔功能。';
       $('#refresh').disabled=!connected;
       if(!connected){
-        connectionEpoch++;photoReady=false;window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;$('#photos').value='';$('#import-progress').textContent='';
+        connectionEpoch++;photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;$('#photos').value='';$('#import-progress').textContent='';
         previewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
         $('#search').value='';$('#category').value='';$('#status').value='';$('#toast').textContent='';$('#toast').hidden=true;
         cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;

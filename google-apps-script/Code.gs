@@ -43,7 +43,7 @@ function listCards(){
   const user=authorize_();
   const dataLabel=String(PropertiesService.getScriptProperties().getProperty('DATA_LABEL')||'Google 資料');
   const photoImport=PropertiesService.getScriptProperties().getProperty('PHOTO_IMPORTS_ENABLED')==='true';
-  return {schemaVersion:1,cards:latest_(readRevisions_(records_(user))),readAt:new Date().toISOString(),dataLabel,capabilities:{photoImport}};
+  return {schemaVersion:1,cards:latest_(readRevisions_(records_(user))),readAt:new Date().toISOString(),dataLabel,capabilities:{photoImport,photoOCR:PropertiesService.getScriptProperties().getProperty('PHOTO_OCR_ENABLED')==='true'}};
 }
 function validateCard_(data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('名片格式不正確。');
