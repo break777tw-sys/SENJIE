@@ -194,11 +194,13 @@ async function refresh(){
     $('#photos').disabled=!photoReady;
     $('#photo-access-note').hidden=photoReady;
     $('.mode').textContent='Google 資料已讀取';
+    $('.notice').hidden=false;
     $('.notice').textContent=`${response.dataLabel||'Google 資料'} · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。${photoReady?'照片請到收件匣保存並確認。':'目前可手動建檔與查詢；照片上傳尚未開放。'}`;
     await loadImports();
   }catch(error){
     if(epoch!==connectionEpoch)return;
     loaded=false;cards=[];importSources=[];archiveRecoveries=[];render();renderImports();$('.mode').textContent='Google 讀取失敗';
+    $('.notice').hidden=false;
     $('.notice').textContent=error.message+' 本頁未顯示舊資料或示範名片。';
   }finally{$('#new-card').disabled=!loaded;}
 }
@@ -214,7 +216,7 @@ if(transport){
     transport.onConnectionChange(({connected,session})=>{
       if(document.documentElement)document.documentElement.dataset.auth=connected?'signed-in':'signed-out';
       $('#site-login').hidden=connected;$('#site-logout').hidden=!connected;
-      $('#auth-status').textContent=connected?'已登入 '+session.email:'登入後才能查看私人資料與使用建檔功能。';
+      $('#auth-status').textContent=connected?'已登入 '+session.email:'使用 Google 帳號登入';
       $('#refresh').disabled=!connected;
       if(!connected){
         connectionEpoch++;photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;$('#photos').value='';$('#import-progress').textContent='';
@@ -223,7 +225,7 @@ if(transport){
         cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;
         $('#detail').close();$('#detail-form').reset();$('#new-card').disabled=true;$('#photos').disabled=true;
         $('#source-links').innerHTML='';$('#review-evidence').innerHTML='';$('#field-checks').innerHTML='';
-        render();renderImports();$('.mode').textContent='尚未登入';$('.notice').textContent='私人資料只會在帳號驗證通過後載入。';
+        render();renderImports();$('.mode').textContent='尚未登入';$('.notice').textContent='';$('.notice').hidden=true;
         document.querySelector('[data-connection="sheets"]').textContent='登入後讀取';
       }
     });
@@ -240,4 +242,5 @@ if(transport){
   }
 }else if(document.documentElement){
   document.documentElement.dataset.auth='demo';
+  $('.notice').hidden=false;$('.notice').textContent='全部使用虛構範例。修改僅保留於本次頁面，重新整理即還原。';
 }

@@ -1,7 +1,8 @@
-// Uses the existing owner-private Apps Script sign-in; no OAuth token is copied
-// to this page. The private endpoint is installed from a user-only URL fragment.
+// Google and the existing server allowlist still authorize every operation.
+// No account, token or browser-specific activation is stored by this page.
+import { GOOGLE_SIGN_IN_URL } from './site-config.js';
 export function createPopupTransport(env=globalThis.window) {
-  const key='senjie.private-endpoint.v1',pending=new Map();
+  const pending=new Map();
   let popup=null,peer=null,peerOrigin='',channel='',session=null,listener=()=>{},opening=null,closedTimer=null;
   const endpoint=value=>{
     const url=new URL(value);
@@ -10,8 +11,7 @@ export function createPopupTransport(env=globalThis.window) {
     return url.href;
   };
   if(env.location.hash.startsWith('#connect=')){
-    try{env.localStorage.setItem(key,endpoint(decodeURIComponent(env.location.hash.slice(9))));}
-    catch{} // Login reports missing/invalid setup without retaining the fragment.
+    // Old bookmarks still land on the site, but cannot override its destination.
     env.history.replaceState(null,'',env.location.pathname+env.location.search+'#home');
   }
   const notify=()=>listener({connected:!!session,session});
@@ -66,8 +66,8 @@ export function createPopupTransport(env=globalThis.window) {
       if(session&&popup&&!popup.closed)return Promise.resolve(session);
       if(opening)return Promise.reject(new Error('請完成已開啟的 Google 登入視窗。'));
       let configured;
-      try{configured=endpoint(env.localStorage.getItem(key)||'');}
-      catch{return Promise.reject(new Error('請先使用你的專用啟用連結，設定這個瀏覽器的登入入口。'));}
+      try{configured=endpoint(GOOGLE_SIGN_IN_URL);}
+      catch{return Promise.reject(new Error('暫時無法開啟登入，請稍後再試。'));}
       channel=Array.from(env.crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
       const url=new URL(configured);url.searchParams.set('senjieBridge','1');url.searchParams.set('origin',env.location.origin);url.searchParams.set('channel',channel);
       popup=env.open(url.href,'senjie-private-connection-'+channel,'popup,width=700,height=700');

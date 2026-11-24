@@ -67,4 +67,5 @@ test('Google連線在本機讀圖期間失效：清除待重試圖片，拒絕�
  assert.equal(uploads,0);assert.equal(page.context.window.pendingPhotoRetry,null);assert.equal(page.nodes.get('retry-upload').hidden,true);
  assert.equal(page.nodes.get('photos').disabled,true);assert.equal(page.nodes.get('photos').value,'');assert.equal(page.nodes.get('import-progress').textContent,'');
  assert.equal(page.nodes.get('card-grid').innerHTML,'');assert.equal(page.nodes.get('jobs').innerHTML,'');
+ assert.equal(page.nodes.get('.notice').textContent,'');assert.equal(page.nodes.get('.notice').hidden,true);assert.equal(page.nodes.get('auth-status').textContent,'使用 Google 帳號登入');
 });
