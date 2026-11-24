@@ -211,7 +211,7 @@ if(transport){
   $('#detail-form [type="submit"]').textContent='保存至 Google';
   $('#refresh').hidden=false;
   document.querySelector('[data-connection="sheets"]').textContent='正在驗證';
-  if(transport.kind==='popup'){
+  if(transport.kind==='redirect'){
     $('#auth-panel').hidden=false;
     transport.onConnectionChange(({connected,session})=>{
       if(document.documentElement)document.documentElement.dataset.auth=connected?'signed-in':'signed-out';
@@ -238,6 +238,9 @@ if(transport){
     $('#site-logout').addEventListener('click',()=>{if(saving||importBusy){notify('請等待目前保存完成後再登出。');return;}transport.logout();});
   }else{
     if(document.documentElement)document.documentElement.dataset.auth='signed-in';
+    $('#auth-panel').hidden=false;$('#site-login').hidden=true;$('#site-logout').hidden=true;
+    $('#auth-status').textContent='已使用 Google 帳號登入';$('#site-entry').hidden=false;
+    $('#site-entry').addEventListener('click',event=>{if(saving||importBusy){event.preventDefault();notify('請等待目前保存完成後再返回。');}});
     refresh().then(()=>document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取 Google 資料':'讀取失敗');
   }
 }else if(document.documentElement){

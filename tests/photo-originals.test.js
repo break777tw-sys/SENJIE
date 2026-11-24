@@ -58,7 +58,7 @@ test('能力尚未開放時拖放也不繞過停用輸入，不讀取或傳送�
 });
 test('Google連線在本機讀圖期間失效：清除待重試圖片，拒絕晚到上傳及私人資料回填',async()=>{
  const env=setup();let changed,reader,uploads=0;
- const transport={kind:'popup',session:null,onConnectionChange(fn){changed=fn;fn({connected:false});},async login(){this.session={email:'owner@example.test'};changed({connected:true,session:this.session});},list:async()=>JSON.parse(JSON.stringify(env.c.listCards())),imports:async()=>JSON.parse(JSON.stringify(env.c.listImports())),upload(){uploads++;}};
+ const transport={kind:'redirect',session:null,onConnectionChange(fn){changed=fn;fn({connected:false});},async login(){this.session={email:'owner@example.test'};changed({connected:true,session:this.session});},list:async()=>JSON.parse(JSON.stringify(env.c.listCards())),imports:async()=>JSON.parse(JSON.stringify(env.c.listImports())),upload(){uploads++;}};
  class Reader{readAsDataURL(){reader=this;}}
  const page=await mountApp(env,{popupTransport:transport,FileReader:Reader});await page.nodes.get('site-login').click();
  page.context.window.pendingPhotoRetry={data:image.base64};

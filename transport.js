@@ -1,7 +1,7 @@
-// No URL, API key or personal data is embedded in the public frontend.
-import { createPopupTransport } from './popup-transport.js';
+// Google authorizes every operation; the public site only starts sign-in.
+import { createSignInTransport } from './popup-transport.js';
 export function createTransport(bridge = globalThis.google?.script?.run) {
-  if (!bridge) return globalThis.document?.documentElement?.dataset.runtime==='connected'?createPopupTransport():null;
+  if (!bridge) return globalThis.document?.documentElement?.dataset.runtime==='connected'?createSignInTransport():null;
   const call=(method,payload)=>new Promise((resolve,reject)=>{
     bridge.withSuccessHandler(resolve).withFailureHandler(error=>reject(new Error(error?.message||'Google 服務未回應')))[method](payload);
   });
