@@ -1,10 +1,14 @@
+## 整站驗收閘門
+
+所有公開畫面及控制項對照 deployment/acceptance-scope.json；執行 node scripts/check-acceptance.mjs <實際證據回條>。照片、辨識或其他必要項目未測、停用、受阻、只有模擬證據時，不能回報整站通過。詳見 [整站驗收規則](deployment/WHOLE-SITE-ACCEPTANCE.md)。
+
 ## 單頁 Google 登入
 
 Adam 已確認：GitHub 網址維持入口，登入後可在同一頁顯示原 Google 工作頁。按「使用 Google 登入」直接導覽至原 Apps Script，不再開連線視窗、使用 opener／focus 或依賴瀏覽器啟用。工作頁以原 google.script.run 讀寫，提供「返回入口」的一般連結；每次伺服器操作仍核對既有 Google 身分與允許名單。原 Google 兩項執行權限、資料與照片能力限制保留。
 
-## 照片確認歸檔候選（真實 Google 照片尚未驗通）
+## 照片流程修正版（待實際整站驗收）
 
-同一原網站新增 Advanced Drive 原圖保存與雜湊核對、人工確認歸檔、重開原圖核對；登出清除待重試圖片，拖放不能繞過停用。現行兩項 Google 權限與關閉照片能力保留。新增的 drive.file 候選須先取得精確授權及實測指定資料夾；OCR 未啟用。[候選與複查範圍](deployment/PHOTO-MANUAL.md)。下方文字讀寫已驗範圍沿用。
+照片以原核准的 Sheets、身分及 drive.file 三項權限保存及核對，Google Docs API 讀取本應用程式建立的辨識文件。已核對專用收件子資料夾位於原名片原圖資料夾內；原圖、OCR 原文及人物確認仍須實際網站驗收，未確認不自動建人。[候選與複查範圍](deployment/PHOTO-MANUAL.md)。下方文字讀寫已驗範圍沿用。
 
 # 名片管理網站草稿
 
@@ -67,7 +71,7 @@ Apps Script 讀寫程式包含 Google 身分驗證、版本衝突保護、操作
 
 21 項本機模擬測試與建置通過，包含虛構正面、反面、重複正面對到 3 次收件、2 張不重複原圖、1 張實體卡、1 位人物，以及未授權四個端點與歸檔部分失敗重試。這不是實際 Google OCR 或瀏覽器上傳驗收。新增 Drive／Documents OAuth 畫面已要求擁有者確認；尚未更新現行私人網站版本 1。
 
-照片後端為 Code.gs＋Imports.gs，依序以單一換行串接；私人隔離驗收可再加單一換行與 Acceptance.gs。HTML 組裝方式不變。部署候選設定為 deployment/photo-runtime-manifest.json；正式範本 google-apps-script/appsscript.json 具有相同服務與 scope、無 webapp 受眾設定。版本 1 歷史快照 acceptance-runtime-manifest.json 保留；目前 HEAD 含新功能，已不宣稱 HEAD 重建舊版本 1。
+照片後端組裝依序為 Code.gs、Imports.gs、PhotoDrive.gs、原隔離驗收專案的 Acceptance.gs、WebsiteBridge.gs，以單一換行串接。HTML 組裝方式不變。現行照片設定以 deployment/photo-manual-runtime-manifest.json 與 google-apps-script/appsscript.json 的三項狹義權限為準；完整 Drive／Documents 的舊候選不部署。版本 1 歷史快照 acceptance-runtime-manifest.json 保留；目前 HEAD 含新功能，已不宣稱 HEAD 重建舊版本 1。
 
 可複驗的兩張虛構 PNG 以 base64 保存在 tests/fixtures/photo-cards.json，沒有真實名片。執行 `python3 scripts/make-photo-fixtures.py /absolute/local/output-directory` 可還原正面、反面與位元組相同的重複正面；腳本先核對 SHA-256，不呼叫 Google、不需要外部套件。上傳這三個檔案後預期收件三次、原圖兩張；必須選取正反面、逐欄核對並明確確認才歸檔。此 fixture 供後續實際網站與獨立複驗使用，目前未宣稱已完成真實 OCR。
 

@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "scope": "Current SENJIE website; planned external integrations are recorded separately, never claimed connected.",
+  "cases": [
+    {
+      "id": "entry",
+      "title": "入口與同頁登入",
+      "controls": [
+        "site-login",
+        "site-entry"
+      ],
+      "checks": [
+        "login",
+        "return-entry"
+      ],
+      "required": true
+    },
+    {
+      "id": "navigation",
+      "title": "五個畫面與返回導覽",
+      "controls": [
+        "card-brand",
+        "site-home-link",
+        "open-people-module",
+        "route:cards",
+        "route:inbox",
+        "route:followups",
+        "route:connections"
+      ],
+      "checks": [
+        "home",
+        "cards",
+        "inbox",
+        "followups",
+        "connections",
+        "back-forward"
+      ],
+      "required": true
+    },
+    {
+      "id": "create-edit",
+      "title": "新增、保存、修改、重新開啟",
+      "controls": [
+        "new-card",
+        "refresh",
+        "close-detail",
+        "submit:detail-form"
+      ],
+      "checks": [
+        "create-v1",
+        "reload-v1",
+        "edit-v2",
+        "reload-v2",
+        "sheet-readback"
+      ],
+      "required": true
+    },
+    {
+      "id": "card-fields",
+      "title": "人物欄位與保留前導零",
+      "controls": [
+        "field:name",
+        "field:alias",
+        "field:company",
+        "field:role",
+        "field:city",
+        "field:category",
+        "field:status",
+        "field:phone",
+        "field:email",
+        "field:line",
+        "field:address",
+        "field:offers",
+        "field:needs",
+        "field:notes",
+        "field:next",
+        "field:date",
+        "field:source"
+      ],
+      "checks": [
+        "all-fields",
+        "leading-zero",
+        "unicode",
+        "source-readonly"
+      ],
+      "required": true
+    },
+    {
+      "id": "validation",
+      "title": "空白與格式錯誤拒絕",
+      "controls": [],
+      "checks": [
+        "required-name",
+        "invalid-email",
+        "invalid-date",
+        "no-write-on-error"
+      ],
+      "required": true
+    },
+    {
+      "id": "duplicates",
+      "title": "疑似重複提示",
+      "controls": [],
+      "checks": [
+        "duplicate-dialog",
+        "no-duplicate-write"
+      ],
+      "required": true
+    },
+    {
+      "id": "version-conflict",
+      "title": "舊版本保存衝突",
+      "controls": [],
+      "checks": [
+        "stale-version-rejected",
+        "new-version-retained"
+      ],
+      "required": true
+    },
+    {
+      "id": "search",
+      "title": "搜尋、篩選、空結果",
+      "controls": [
+        "search",
+        "category",
+        "status"
+      ],
+      "checks": [
+        "keyword",
+        "combined-filter",
+        "clear-filter",
+        "no-results"
+      ],
+      "required": true
+    },
+    {
+      "id": "layout",
+      "title": "卡片列表切換",
+      "controls": [
+        "layout"
+      ],
+      "checks": [
+        "list",
+        "cards"
+      ],
+      "required": true
+    },
+    {
+      "id": "followups",
+      "title": "合作追蹤與修改",
+      "controls": [],
+      "checks": [
+        "new-followup-visible",
+        "edit-from-followup",
+        "no-scheduled-reminder-claim"
+      ],
+      "required": true
+    },
+    {
+      "id": "photo-upload",
+      "title": "照片上傳與指定位置保存",
+      "controls": [
+        "photos",
+        "reload-imports"
+      ],
+      "checks": [
+        "png",
+        "jpg",
+        "webp",
+        "file-size-type-reject",
+        "drive-parent",
+        "sha256",
+        "reload-inbox"
+      ],
+      "required": true
+    },
+    {
+      "id": "photo-retry",
+      "title": "重試與重複照片不重建",
+      "controls": [
+        "retry-upload"
+      ],
+      "checks": [
+        "same-request-replay",
+        "same-photo-no-new-original"
+      ],
+      "required": true
+    },
+    {
+      "id": "photo-ocr",
+      "title": "辨識原文與候選值",
+      "controls": [],
+      "checks": [
+        "ocr-text",
+        "unconfirmed-candidates",
+        "recognition-retry",
+        "failed-ocr-preserves-original"
+      ],
+      "required": true
+    },
+    {
+      "id": "photo-review",
+      "title": "逐欄確認與正反面歸檔",
+      "controls": [
+        "review-selected",
+        "confirm-one-card"
+      ],
+      "checks": [
+        "selection-required",
+        "side-pairing",
+        "confirmation-required",
+        "field-review-required",
+        "archive-person-source-link"
+      ],
+      "required": true
+    },
+    {
+      "id": "photo-original",
+      "title": "重新開啟私人Drive原圖",
+      "controls": [],
+      "checks": [
+        "source-readback",
+        "person-original-link",
+        "private-original-open"
+      ],
+      "required": true
+    },
+    {
+      "id": "photo-recovery",
+      "title": "中斷歸檔續辦",
+      "controls": [],
+      "checks": [
+        "records-committed-imports-pending",
+        "resume-same-person",
+        "no-duplicate-person"
+      ],
+      "required": true
+    },
+    {
+      "id": "security",
+      "title": "未授權讀寫拒絕",
+      "controls": [],
+      "checks": [
+        "anonymous-read-denied",
+        "anonymous-write-denied",
+        "denied-account",
+        "no-data-change"
+      ],
+      "required": true
+    },
+    {
+      "id": "privacy",
+      "title": "公開原始碼與私人資料分離",
+      "controls": [],
+      "checks": [
+        "no-credentials-or-real-cards-in-assets",
+        "private-drive-sharing",
+        "no-stale-data-after-denied"
+      ],
+      "required": true
+    },
+    {
+      "id": "device-layout",
+      "title": "桌面與窄版導覽",
+      "controls": [],
+      "checks": [
+        "desktop",
+        "320-layout",
+        "390-layout",
+        "phone-actual"
+      ],
+      "required": true
+    },
+    {
+      "id": "connections",
+      "title": "入口狀態與未接通項目揭露",
+      "controls": [],
+      "checks": [
+        "sheets-state",
+        "drive-state",
+        "chatgpt-not-connected",
+        "line-not-connected",
+        "dot-not-connected"
+      ],
+      "required": true
+    },
+    {
+      "id": "legacy-logout",
+      "title": "已停用的舊視窗登出按鈕",
+      "controls": [
+        "site-logout"
+      ],
+      "checks": [
+        "hidden-in-current-single-page-flow"
+      ],
+      "required": true
+    }
+  ],
+  "completionRule": "Every required check needs current live evidence, reviewer and time. Disabled, untested, blocked and mock-only are not passed.",
+  "plannedIntegrations": [
+    "ChatGPT shared backend",
+    "LINE shared backend",
+    "dot shared backend"
+  ]
+}

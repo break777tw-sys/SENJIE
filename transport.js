@@ -5,5 +5,5 @@ export function createTransport(bridge = globalThis.google?.script?.run) {
   const call=(method,payload)=>new Promise((resolve,reject)=>{
     bridge.withSuccessHandler(resolve).withFailureHandler(error=>reject(new Error(error?.message||'Google 服務未回應')))[method](payload);
   });
-  return {kind:'apps-script',list:()=>call('listCards'),save:request=>call('saveCard',request),imports:()=>call('listImports'),upload:request=>call('uploadPhoto',request),recognize:sourceId=>call('recognizePhoto',{sourceId}),archive:request=>call('archivePhotos',request),resume:requestId=>call('resumePhotoArchive',{requestId}),original:sourceId=>call('verifyPhoto',{sourceId})};
+  return {kind:'apps-script',list:()=>call('listCards'),save:request=>call('saveCard',request),imports:()=>call('listImports'),upload:request=>call('uploadPhoto',request),recognize:(sourceId,image)=>call('recognizePhoto',{sourceId,...image}),archive:request=>call('archivePhotos',request),resume:requestId=>call('resumePhotoArchive',{requestId}),original:sourceId=>call('verifyPhoto',{sourceId})};
 }

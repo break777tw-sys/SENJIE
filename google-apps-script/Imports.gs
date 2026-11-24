@@ -33,11 +33,6 @@ function importLock_(action){
   if(!lock.tryLock(5000))throw new Error('匯入處理中，請稍後重試。');
   try{return action(user);}finally{lock.releaseLock();}
 }
-function importFolder_(){
-  const id=PropertiesService.getScriptProperties().getProperty('IMPORT_FOLDER_ID');
-  if(!id)throw new Error('尚未設定私人原圖資料夾 IMPORT_FOLDER_ID。');
-  return DriveApp.getFolderById(id);
-}
 function hashBytes_(bytes){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes).map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');}
 function imageBlob_(data,mime,name){
   if(!['image/jpeg','image/png','image/webp'].includes(mime)||typeof data!=='string'||data.length>14000000||!/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data))throw new Error('圖片格式或大小不符。');
@@ -121,15 +116,25 @@ function recognizePhoto(request){return importLock_(user=>{
   if(PropertiesService.getScriptProperties().getProperty('PHOTO_OCR_ENABLED')!=='true')return {source,manualReview:true};
   if(source.state==='ready'||source.state==='archived')return {source};
   try{
-    let blob=DriveApp.getFileById(source.originalId).getBlob();
+    verifySourcePhoto_(source);
     // WebP is preserved unchanged, but requires a derivative for Drive OCR.
     if(source.mime==='image/webp')throw new Error('WebP 原圖已保存；請另上傳 JPG／PNG 供辨識，再一起確認。');
     if(source.bytes>2*1024*1024)throw new Error('原圖已保存；Google OCR 此流程限制 2 MB，請另上傳較小 JPG／PNG 供辨識。');
-    const folder=importFolder_(),name=source.hash+'-OCR',matches=folder.getFilesByName(name);
-    let docId=source.ocrDocumentId||(matches.hasNext()?matches.next().getId():null);
-    if(!docId)docId=Drive.Files.create({name,mimeType:'application/vnd.google-apps.document',parents:[folder.getId()]},blob,{ocrLanguage:'zh',fields:'id'}).id;
+    const parent=photoParent_();let docId=source.ocrDocumentId;
+    if(!docId){
+      const found=Drive.Files.list({q:"'"+parent+"' in parents and trashed = false and appProperties has { key='senjieRole' and value='ocr' } and appProperties has { key='sourceSHA256' and value='"+source.hash+"' }",fields:'nextPageToken,files(id)',pageSize:2});
+      if(found.nextPageToken||(found.files||[]).length>1)throw new Error('辨識來源不唯一，請檢查收件紀錄。');
+      docId=found.files?.[0]?.id;
+      if(!docId){
+        if(typeof request.data!=='string')throw new Error('請重新上傳同一原圖以重試辨識；已保存的原圖不會重複建立。');
+        const blob=imageBlob_(request.data,request.mime,'ocr-input');
+        if(request.mime!==source.mime||blob.getBytes().length!==source.bytes||hashBytes_(blob.getBytes())!==source.hash)throw new Error('辨識圖片與已保存原圖不符。');
+        docId=Drive.Files.create({name:source.hash+'-OCR',mimeType:'application/vnd.google-apps.document',parents:[parent],appProperties:{senjieRole:'ocr',sourceSHA256:source.hash}},blob,{ocrLanguage:'zh',fields:'id'}).id;
+      }
+    }
     const saved=appendSource_(sheet,{...source,ocrDocumentId:docId,state:'recognizing',error:''});
-    const text=DocumentApp.openById(docId).getBody().getText();
+    const document=Docs.Documents.get(docId,{includeTabsContent:true});
+    const text=ocrDocumentText_(document);
     if(text.length>16000)throw new Error('辨識文字超過上限，請拆分照片。');
     return {source:appendSource_(sheet,{...saved,ocrText:text,candidates:extractCandidates_(text),state:'ready',recognizedAt:new Date().toISOString(),error:''})};
   }catch(error){
@@ -137,6 +142,18 @@ function recognizePhoto(request){return importLock_(user=>{
     return {source:appendSource_(sheet,{...current,state:'error',error:String(error.message||error).slice(0,500)})};
   }
 });}
+function ocrDocumentText_(document){
+  let text='';
+  const content=items=>{for(const item of items||[]){
+    for(const element of item.paragraph?.elements||[])text+=element.textRun?.content||'';
+    for(const row of item.table?.tableRows||[])for(const cell of row.tableCells||[])content(cell.content);
+    if(text.length>16000)throw new Error('辨識文字超過上限，請拆分照片。');
+  }};
+  const tabs=items=>{for(const tab of items||[]){content(tab.documentTab?.body?.content);tabs(tab.childTabs);}};
+  if(document.tabs?.length)tabs(document.tabs);else content(document.body?.content);
+  if(!text.trim())throw new Error('未辨識到文字，請對照原圖手動確認或換清晰照片。');
+  return text;
+}
 function archivePhotos(request){return importLock_(user=>{
   if(!request||request.confirmed!==true||!Array.isArray(request.sources)||request.sources.length<1||request.sources.length>10||new Set(request.sources.map(s=>s.id)).size!==request.sources.length)throw new Error('請確認同一張實體名片、同一人物與全部來源。');
   const clean=validateCard_(request.card);

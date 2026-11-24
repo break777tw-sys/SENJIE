@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {createFakeGoogle} from './helpers/fake-google.js';
 import {mountApp} from './helpers/app-dom.js';
 const images=JSON.parse(readFileSync(new URL('./fixtures/photo-cards.json',import.meta.url),'utf8')).files;
-function pair(env){return images.map((image,i)=>{const source=env.c.uploadPhoto({requestId:'upload-recovery-000'+i,batchId:'batch-recovery-0001',name:image.name,mime:image.mime,data:image.base64}).source;env.c.recognizePhoto({sourceId:source.id});return source;});}
+function pair(env){return images.map((image,i)=>{const source=env.c.uploadPhoto({requestId:'upload-recovery-000'+i,batchId:'batch-recovery-0001',name:image.name,mime:image.mime,data:image.base64}).source;env.c.recognizePhoto({sourceId:source.id,data:image.base64,mime:image.mime});return source;});}
 const card={name:'Fictional Person',company:'Example Invalid',status:'已確認',phone:'0900000022'};
 const request=sources=>({requestId:'recovery-request-0001',sources:sources.map((s,i)=>({id:s.id,side:i?'反面':'正面'})),card,confirmed:true,reviewedFields:Object.keys(card)});
 for(const completedSides of [0,1])test(`實際app事件：來源已完成${completedSides}面後故障，重開頁面從原收件匣補齊兩面且一人`,async()=>{

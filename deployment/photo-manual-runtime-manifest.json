@@ -9,8 +9,20 @@
   ],
   "dependencies": {
     "enabledAdvancedServices": [
-      {"userSymbol": "Drive", "version": "v3", "serviceId": "drive"}
+      {
+        "userSymbol": "Drive",
+        "version": "v3",
+        "serviceId": "drive"
+      },
+      {
+        "userSymbol": "Docs",
+        "version": "v1",
+        "serviceId": "docs"
+      }
     ]
   },
-  "webapp": {"executeAs": "USER_ACCESSING", "access": "MYSELF"}
+  "webapp": {
+    "executeAs": "USER_ACCESSING",
+    "access": "MYSELF"
+  }
 }

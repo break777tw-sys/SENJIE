@@ -20,3 +20,26 @@ function websiteBridgeCall(request){
   if(['uploadPhoto','recognizePhoto','archivePhotos','resumePhotoArchive','verifyPhoto'].includes(request.method)&&!photos)throw new Error('照片建檔尚未開放；目前可先使用手動建檔與查詢。');
   return methods[request.method](request.payload);
 }
+
+function authorizePhotoAccess(){authorize_();ScriptApp.requireScopes(ScriptApp.AuthMode.FULL,['https://www.googleapis.com/auth/drive.file']);return photoReadiness();}
+function inspectPhotoDestination(){authorize_();photoParent_();console.log('PHOTO_FOLDER_READY');}
+function disablePhotoInbox(){authorize_();PropertiesService.getScriptProperties().setProperty('PHOTO_IMPORTS_ENABLED','false');console.log('PHOTO_UPLOADS_DISABLED');}
+// Owner setup only. The empty app-created folder must be moved into the existing
+// collection before activatePhotoInbox can enable uploads. Never uploads to root.
+function preparePhotoInbox(){return importLock_(user=>{
+  const props=PropertiesService.getScriptProperties(),collection=props.getProperty('PHOTO_COLLECTION_FOLDER_ID')||props.getProperty('IMPORT_FOLDER_ID');
+  if(typeof collection!=='string'||!/^[A-Za-z0-9_-]{8,200}$/.test(collection)||collection==='root')throw new Error('Missing dedicated collection folder');
+  const found=Drive.Files.list({q:"trashed = false and mimeType = 'application/vnd.google-apps.folder' and appProperties has { key='senjieRole' and value='photo-inbox' } and appProperties has { key='senjieCollection' and value='"+collection+"' }",fields:'nextPageToken,files(id,name,parents)',pageSize:2});
+  if(found.nextPageToken||(found.files||[]).length>1)throw new Error('Multiple setup folders; stop');
+  const folder=found.files?.[0]||Drive.Files.create({name:'名片網站收件',mimeType:'application/vnd.google-apps.folder',appProperties:{senjieRole:'photo-inbox',senjieCollection:collection}},null,{fields:'id,name,parents'});
+  props.setProperty('PHOTO_COLLECTION_FOLDER_ID',collection);props.setProperty('PHOTO_SETUP_FOLDER_ID',folder.id);
+  console.log(JSON.stringify({photoInboxSetup:{folder,collection,active:false}}));return {folder,collection};
+});}
+function activatePhotoInbox(){return importLock_(user=>{
+  const props=PropertiesService.getScriptProperties(),collection=props.getProperty('PHOTO_COLLECTION_FOLDER_ID'),id=props.getProperty('PHOTO_SETUP_FOLDER_ID');
+  if(!collection||!id||collection==='root'||id==='root'||collection===id)throw new Error('Missing verified photo setup');
+  const folder=Drive.Files.get(id,{fields:'id,mimeType,parents,trashed,capabilities(canAddChildren),appProperties'});
+  if(folder.trashed||folder.mimeType!=='application/vnd.google-apps.folder'||!folder.parents?.includes(collection)||folder.capabilities?.canAddChildren!==true||folder.appProperties?.senjieRole!=='photo-inbox'||folder.appProperties?.senjieCollection!==collection)throw new Error('Photo inbox must be inside the dedicated collection');
+  props.setProperty('IMPORT_FOLDER_ID',id);props.setProperty('PHOTO_IMPORTS_ENABLED','true');
+  console.log(JSON.stringify({photoInboxActive:{folderId:id,collection,ready:true}}));return photoReadiness();
+});}

@@ -51,6 +51,16 @@ test('drive.file已授權仍必須核對同一應用程式的指定資料夾，�
  const env=setup({denyDrive:true});env.c.ScriptApp={AuthMode:{FULL:'FULL'},AuthorizationStatus:{NOT_REQUIRED:'ok'},getAuthorizationInfo:()=>({getAuthorizationStatus:()=> 'ok'})};
  assert.equal(env.c.photoReadiness().code,'PHOTO_FOLDER_REQUIRED');assert.equal(env.files.size,0);
 });
+test('明確授權入口先拒絕案外身分，且缺同意時不存圖、不開啟照片旗標',()=>{
+ const env=createFakeGoogle({code:['Code.gs','Imports.gs','PhotoDrive.gs','WebsiteBridge.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n')}),calls=[];env.c.ScriptApp={AuthMode:{FULL:'FULL'},requireScopes:(mode,scopes)=>{calls.push({mode,scopes:[...scopes]});throw Error('Consent required');}};
+ env.setEmail('stranger@example.test');assert.throws(()=>env.c.authorizePhotoAccess(),/拒絕存取/);assert.equal(calls.length,0);
+ env.setEmail('owner@example.test');assert.throws(()=>env.c.authorizePhotoAccess(),/Consent required/);
+ assert.deepEqual(calls,[{mode:'FULL',scopes:['https://www.googleapis.com/auth/drive.file']}]);assert.equal(env.files.size,0);assert.equal(env.driveCalls.length,0);
+});
+test('已給照片權限的授權入口仍檢查指定目的地，不自行替換或建立資料夾',()=>{
+ const env=createFakeGoogle({denyDrive:true,code:['Code.gs','Imports.gs','PhotoDrive.gs','WebsiteBridge.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n')});env.c.ScriptApp={AuthMode:{FULL:'FULL'},AuthorizationStatus:{NOT_REQUIRED:'ok'},requireScopes(){},getAuthorizationInfo:()=>({getAuthorizationStatus:()=> 'ok'})};
+ assert.equal(env.c.authorizePhotoAccess().code,'PHOTO_FOLDER_REQUIRED');assert.equal(env.files.size,0);
+});
 test('能力尚未開放時拖放也不繞過停用輸入，不讀取或傳送照片',async()=>{
  const env=setup({properties:{PHOTO_IMPORTS_ENABLED:'false'}}),page=await mountApp(env);
  await page.context.receive([{name:'fictional-front.png',type:'image/png',size:100}]);

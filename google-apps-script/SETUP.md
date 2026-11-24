@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | 1 | 沿用資料與權限 | 設定 SPREADSHEET_ID、ALLOWED_EMAILS；沿用已確認的試算表。設定 IMPORT_FOLDER_ID 為既有專案內的私人原圖資料夾。 | 不建立第二份正式總表，不修改分享，不加入聯絡人。 |
 | 2 | 組裝同一版來源 | node scripts/build.mjs 產生 Index.html；Code.gs、Imports.gs 分檔或依序以單一換行串接。私人隔離測試才加 Acceptance.gs。 | 生成檔與原始碼一致；不要混用舊版後端。 |
-| 3 | 啟用 Google 辨識 | 使用 appsscript.json 宣告 Advanced Drive v3 與 Sheets、身分、Drive、Documents scope。預設 GCP 專案會隨進階服務自動啟用 API；不啟用付費 OCR。 | Drive 保存原始位元組，Google Docs 轉換取得 OCR 原文。新增 OAuth 同意需由擁有者在 Google 畫面確認。 |
+| 3 | 啟用 Google 辨識 | 使用 appsscript.json 宣告 Advanced Drive v3、Docs v1 與 Sheets、身分、drive.file 三項 scope；Docs API 只讀本應用程式建立的辨識文件。預設 GCP 專案會隨進階服務自動啟用 API；不啟用付費 OCR。 | Drive 保存原始位元組，Google Docs 轉換取得 OCR 原文。新增 OAuth 同意需由擁有者在 Google 畫面確認。 |
 | 4 | 保護現有紀錄 | Records 已存在時不初始化覆寫；缺少時由 editor 的 initializeRecords_ 建立。Imports 首次在授權與鎖內建立，兩表都檢查標頭。 | 原表不覆寫；Records 六欄，Imports 三欄；版本完整追加。 |
 | 5 | 驗收後更新私人部署 | 以 USER_ACCESSING／MYSELF 驗證；同一部署更新版本可保留網址。不得取消 allowlist 或改為匿名公開。 | 未授權讀取、上傳、辨識、歸檔都拒絕；另一帳號與裝置分開實測。 |
 | 6 | 核對匯入流程 | 虛構正面、反面、重複正面依序上傳；核對原圖 SHA-256、OCR 原文、逐欄確認、同卡面別，最後歸檔與重載。 | 收件 3 次、不重複原圖 2 張、實體卡 1 張、人物 1 位；來源 URL 與穩定 ID 可讀回；本機故障注入後重開收件匣，從續辦入口補齊來源，人物／實體卡仍各一。 |

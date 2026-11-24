@@ -130,7 +130,7 @@ async function receive(files){
     added++;await loadImports();
     if(photoOCR&&!['ready','archived'].includes(response.source.state)){
       $('#import-progress').textContent=`原圖已保存，正在辨識：${file.name}`;
-      const recognized=await transport.recognize(response.source.id);await loadImports();
+      const recognized=await transport.recognize(response.source.id,{data:request.data,mime:request.mime});await loadImports();
       if(recognized.manualReview)notify('原圖已保存，請選取來源、逐欄核對後歸檔。');
     }else if(!photoOCR)notify('原圖已保存，請選取來源、逐欄核對後歸檔。');
   }}catch(error){notify(error.message);}
@@ -189,7 +189,7 @@ async function refresh(){
     if(epoch!==connectionEpoch)return;
     if(response.schemaVersion!==1||!Array.isArray(response.cards))throw new Error('資料結構不符，停止載入。');
     cards=response.cards;loaded=true;render();
-    photoReady=response.capabilities?.photoImport!==false&&transport.session?.capabilities?.photoImport!==false;
+    photoReady=response.capabilities?.photoImport===true&&transport.session?.capabilities?.photoImport!==false;
     photoOCR=response.capabilities?.photoOCR===true;
     $('#photos').disabled=!photoReady;
     $('#photo-access-note').hidden=photoReady;
