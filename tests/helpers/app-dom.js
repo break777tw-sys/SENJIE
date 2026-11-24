@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 const html=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
-const source=['model.js','search.js','transport.js','app.js'].map(f=>readFileSync(new URL('../../'+f,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+const source=['model.js','search.js','transport.js','conversations.js','app.js'].map(f=>readFileSync(new URL('../../'+f,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
 class Element{
  constructor(id=''){this.id=id;this.value='';this.checked=false;this.hidden=false;this.disabled=false;this.dataset={};this.handlers={};this.textContent='';this._html='';this.attributes=new Map();const classes=new Set();this.classList={toggle:(name,force)=>{const enabled=force??!classes.has(name);enabled?classes.add(name):classes.delete(name);return enabled;},add:name=>classes.add(name),remove:name=>classes.delete(name),contains:name=>classes.has(name)};}
  addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);}
@@ -41,6 +41,10 @@ export async function mountApp(backend,options={}){
   querySelectorAll(selector){if(selector==='[data-source]:checked')return selected;if(selector==='#field-checks input:checked')return checks.inputs?.filter(i=>i.checked)||[];if(selector==='.view')return views;if(selector==='[data-view]')return buttons;if(selector==='[data-route]')return links;return [];},
   handlers:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);},
  };
+ const demoNodes=new Map();
+ for(const selector of ['[data-demo-status]','[data-demo-content]','[name="demo-preference"]','form','[type="submit"]','[data-demo-reload]'])demoNodes.set(selector,new Element(selector));
+ demoNodes.get('form').querySelector=selector=>demoNodes.get(selector);
+ nodes.get('conversations').querySelector=selector=>demoNodes.get(selector);
  const calls=[];
  const bridge=new Proxy({},{get(_,method){if(method==='withSuccessHandler')return success=>({withFailureHandler:failure=>new Proxy({},{get:(_,name)=>payload=>{calls.push({name,payload});Promise.resolve().then(()=>backend.c[name](payload==null?payload:JSON.parse(JSON.stringify(payload)))).then(result=>success(JSON.parse(JSON.stringify(result))),failure);}})});}});
  const frames=new Map();let frameId=0;const scrollCalls=[];
@@ -50,7 +54,7 @@ export async function mountApp(backend,options={}){
  const context=vm.createContext({document,window,google:options.popupTransport?undefined:{script:{run:bridge}},createSignInTransport:()=>options.popupTransport,FileReader:options.FileReader,crypto:{randomUUID},FormData:class{constructor(target){return target.elements.map(f=>[f.name,f.value]);}},Date,console,URL:{revokeObjectURL(){}},setTimeout:()=>1,clearTimeout(){}});
  vm.runInContext(options.script||source,context);
  const settled=()=>new Promise(resolve=>setImmediate(resolve));await settled();await settled();flushFrames();
- return {nodes,form,fields,submit,calls,context,settled,opened,flushFrames,scrollCalls,navigation:{views,buttons,links},
+ return {nodes,demoNodes,form,fields,submit,calls,context,settled,opened,flushFrames,scrollCalls,navigation:{views,buttons,links},
   async navigate(view){const control=buttons.find(b=>b.dataset.view===view)||links.find(l=>l.dataset.route===view);if(!control)throw new Error('No navigation control: '+view);await control.click();flushFrames();},
   async emitWindow(type){for(const fn of window.handlers[type]||[])await fn();flushFrames();},
   async setHash(hash){window.location.hash=hash;for(const fn of window.handlers.hashchange||[])await fn();flushFrames();},

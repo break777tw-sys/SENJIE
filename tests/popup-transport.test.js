@@ -19,7 +19,7 @@ test('未登入的公開頁面不能讀寫資料，也不假裝已建立登入�
 test('舊啟用連結不能改變新的單頁登入目的地',()=>{
  const b=browser('#connect='+encodeURIComponent('https://evil.example/exec'));b.transport.login();assert.equal(b.env.replaced[2],'/SENJIE/#home');assert.deepEqual(b.navigated,[GOOGLE_SIGN_IN_URL]);
 });
-const code=['Code.gs','Imports.gs','PhotoDrive.gs','WebsiteBridge.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
+const code=['Code.gs','Imports.gs','PhotoDrive.gs','Conversations.gs','WebsiteBridge.gs'].map(f=>readFileSync(new URL('../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
 test('真正後端bridge白名單：未登入session／CRUD拒絕；不可呼叫私人函式或任意Google函式',()=>{
  const env=createFakeGoogle({code});env.setEmail('stranger@example.test');
  for(const method of ['session','listCards','saveCard','uploadPhoto'])assert.throws(()=>env.c.websiteBridgeCall({method}),/拒絕存取/);

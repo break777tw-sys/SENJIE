@@ -8,7 +8,7 @@ async function pageAt(hash='',options={}){
  const env=createFakeGoogle();env.c.listCards=()=>({schemaVersion:1,cards:structuredClone(fixture.cards),readAt:fixture.evaluationInstant});return mountApp(env,{hash,...options});
 }
 const visible=page=>page.navigation.views.filter(v=>!v.hidden).map(v=>v.id);
-test('總入口只呈現已確認名片模組，四個畫面仍在模組內',async()=>{
+test('總入口提供名片與對話示例模組，名片四畫面保持不變',async()=>{
  const page=await pageAt();assert.deepEqual(visible(page),['home']);assert.equal(page.nodes.get('card-navigation').hidden,true);assert.equal(page.nodes.get('site-brand').hidden,false);
  assert.equal(page.navigation.buttons.length,4);assert.deepEqual(page.navigation.buttons.map(b=>b.dataset.view),['cards','inbox','followups','connections']);
  assert.equal(page.nodes.get('open-people-module').getAttribute('href'),'#cards');assert.equal(page.context.document.title,'SENJIE 總入口 · 開發版');

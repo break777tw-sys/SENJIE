@@ -2,12 +2,13 @@
 import { findDuplicates, demoCards } from './model.js';
 import { searchPeople } from './search.js';
 import { createTransport } from './transport.js';
+import { initConversations } from './conversations.js';
 const transport=createTransport();
 let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.length, saving=false, pendingRequest=null, loaded=!transport;
 let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false,photoReady=false,photoOCR=false,connectionEpoch=0;
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
-const routeLabels={home:'SENJIE 總入口',...labels};let activeView=null;
+const routeLabels={home:'SENJIE 總入口',conversations:'對話與偏好',...labels};let activeView=null;
 let routeScrollFrame=null;
 const routeFromHash=()=>Object.hasOwn(routeLabels,window.location.hash.slice(1))?window.location.hash.slice(1):'home';
 function restoreNarrowEntry(){
@@ -24,12 +25,12 @@ function showView(view){
   if(!Object.hasOwn(routeLabels,view))view='home';
   if(activeView===view)return;
   if($('#detail').open)$('#detail').close();
-  activeView=view;const home=view==='home';
+  activeView=view;const home=view==='home',cardModule=!home&&view!=='conversations';
   document.querySelectorAll('.view').forEach(section=>section.hidden=section.id!==view);
   document.querySelectorAll('[data-view]').forEach(button=>{button.classList.toggle('active',button.dataset.view===view);if(button.dataset.view===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
-  $('#site-brand').hidden=!home;$('#card-brand').hidden=home;$('#card-navigation').hidden=home;$('#module-crumb').hidden=home;
+  $('#site-brand').hidden=cardModule;$('#card-brand').hidden=!cardModule;$('#card-navigation').hidden=!cardModule;$('#module-crumb').hidden=!cardModule;
   $('#site-home-link').textContent=home?'SENJIE 總入口':'返回 SENJIE 總入口';
-  $('#crumb').textContent=routeLabels[view];document.title=home?'SENJIE 總入口 · 開發版':routeLabels[view]+' · 名片／人脈 · SENJIE';
+  $('#crumb').textContent=routeLabels[view];document.title=home?'SENJIE 總入口 · 開發版':routeLabels[view]+' · SENJIE';
 }
 function navigate(view){
   if(!Object.hasOwn(routeLabels,view))return;
@@ -247,3 +248,5 @@ if(transport){
   document.documentElement.dataset.auth='demo';
   $('.notice').hidden=false;$('.notice').textContent='全部使用虛構範例。修改僅保留於本次頁面，重新整理即還原。';
 }
+
+initConversations({transport,escape});

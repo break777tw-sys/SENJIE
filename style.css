@@ -7,3 +7,5 @@
 @media(max-width:700px){.view{scroll-margin-top:var(--route-start,0px)}}
 
 .auth-panel{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:20px;margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:14px}.auth-panel[hidden]{display:none}.auth-panel p{margin:4px 0;font-size:15px;color:var(--muted)}[data-auth="signed-out"] .stats,[data-auth="signed-out"] #card-grid,[data-auth="signed-out"] .result-line,[data-auth="signed-out"] #empty,[data-auth="signed-out"] #followup-list{display:none}@media(max-width:700px){.auth-panel{align-items:stretch;flex-direction:column}.auth-panel button{width:100%}}
+
+#conversations textarea{display:block;width:100%;min-height:110px;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:8px}#conversations article{overflow-wrap:anywhere}#conversations label{display:block}#conversations form button{max-width:100%;white-space:normal}

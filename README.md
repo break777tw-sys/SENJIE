@@ -1,3 +1,7 @@
+## 目前候選：對話與偏好（尚未部署）
+
+原總入口新增與名片並列的虛構示例模組，可讀兩回合、保存一筆示例偏好並重開讀回。沒有接通 LINE／模型，示例用量不是官方用量、公式費用不是帳單。沿原私人 Google 登入與試算表，沒有新權限或付費。[候選與原驗收者步驟](deployment/CONVERSATIONS-CANDIDATE.md)。Google 實站仍為版本 6，等待 Mac 解鎖後發布與實測；不得把候選當成實站完成。
+
 ## 整站驗收閘門
 
 所有公開畫面及控制項對照 deployment/acceptance-scope.json；執行 node scripts/check-acceptance.mjs <實際證據回條>。照片、辨識或其他必要項目未測、停用、受阻、只有模擬證據時，不能回報整站通過。詳見 [整站驗收規則](deployment/WHOLE-SITE-ACCEPTANCE.md)。
@@ -71,7 +75,7 @@ Apps Script 讀寫程式包含 Google 身分驗證、版本衝突保護、操作
 
 21 項本機模擬測試與建置通過，包含虛構正面、反面、重複正面對到 3 次收件、2 張不重複原圖、1 張實體卡、1 位人物，以及未授權四個端點與歸檔部分失敗重試。這不是實際 Google OCR 或瀏覽器上傳驗收。新增 Drive／Documents OAuth 畫面已要求擁有者確認；尚未更新現行私人網站版本 1。
 
-照片後端組裝依序為 Code.gs、Imports.gs、PhotoDrive.gs、原隔離驗收專案的 Acceptance.gs、WebsiteBridge.gs，以單一換行串接。HTML 組裝方式不變。現行照片設定以 deployment/photo-manual-runtime-manifest.json 與 google-apps-script/appsscript.json 的三項狹義權限為準；完整 Drive／Documents 的舊候選不部署。版本 1 歷史快照 acceptance-runtime-manifest.json 保留；目前 HEAD 含新功能，已不宣稱 HEAD 重建舊版本 1。
+照片後端組裝依序為 Code.gs、Imports.gs、PhotoDrive.gs、Conversations.gs、原隔離驗收專案的 Acceptance.gs、WebsiteBridge.gs，以單一換行串接。HTML 組裝方式不變。現行照片設定以 deployment/photo-manual-runtime-manifest.json 與 google-apps-script/appsscript.json 的三項狹義權限為準；完整 Drive／Documents 的舊候選不部署。版本 1 歷史快照 acceptance-runtime-manifest.json 保留；目前 HEAD 含新功能，已不宣稱 HEAD 重建舊版本 1。
 
 可複驗的兩張虛構 PNG 以 base64 保存在 tests/fixtures/photo-cards.json，沒有真實名片。執行 `python3 scripts/make-photo-fixtures.py /absolute/local/output-directory` 可還原正面、反面與位元組相同的重複正面；腳本先核對 SHA-256，不呼叫 Google、不需要外部套件。上傳這三個檔案後預期收件三次、原圖兩張；必須選取正反面、逐欄核對並明確確認才歸檔。此 fixture 供後續實際網站與獨立複驗使用，目前未宣稱已完成真實 OCR。
 

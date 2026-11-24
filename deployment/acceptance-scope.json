@@ -294,6 +294,25 @@
         "hidden-in-current-single-page-flow"
       ],
       "required": true
+    },
+    {
+      "id": "conversations",
+      "title": "虛構對話與偏好",
+      "controls": [
+        "open-conversations-module",
+        "reload-conversations",
+        "save-demo-preference",
+        "field:demo-preference"
+      ],
+      "checks": [
+        "two-fictional-rounds",
+        "fictional-usage-not-official",
+        "real-state-unknown",
+        "edit-preference",
+        "reopen-readback",
+        "unauthorized-rejected"
+      ],
+      "required": true
     }
   ],
   "completionRule": "Every required check needs current live evidence, reviewer and time. Disabled, untested, blocked and mock-only are not passed.",

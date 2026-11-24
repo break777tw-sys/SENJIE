@@ -1,7 +1,7 @@
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-const code=['Code.gs','Imports.gs','PhotoDrive.gs'].map(f=>readFileSync(new URL('../../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
+const code=['Code.gs','Imports.gs','PhotoDrive.gs','Conversations.gs'].map(f=>readFileSync(new URL('../../google-apps-script/'+f,import.meta.url),'utf8')).join('\n');
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64');
 export function createFakeGoogle(options={}){
  let email='owner@example.test',counter=0,failSourceWrite=null,failOCR=false;

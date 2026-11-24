@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "mode": "FICTIONAL_DEMO_ONLY",
+  "transportStatus": "NOT_CONNECTED",
+  "example": {
+    "event_id": "DEMO_EVENT_001",
+    "chat_id": "DEMO_CHAT_001",
+    "question": "請將虛構資訊『週五九點、藍色雨衣』改寫成一句親切提醒，使用繁體中文，不新增日期或地點。",
+    "answer": "週五九點，記得帶藍色雨衣。",
+    "status": "SIMULATED_REPLY_NOT_SENT",
+    "sent_to_LINE": false,
+    "same_chat_verified": false,
+    "live_model_verified": false
+  },
+  "preferenceSaveExample": {
+    "text": "使用繁體中文，先說重點。",
+    "expectedVersion": 0,
+    "requestId": "demo-preference-request-001"
+  },
+  "boundaries": [
+    "示例固定為 DEMO_CHAT_001；不可把真實 LINE user/chat ID 或 token 填入此示例。",
+    "第一筆示例時間與 token 數是虛構，條件費用非官方 usage 或帳單。",
+    "偏好存於原私人試算表 DemoPreferences，與人物 Records 分開。",
+    "尚未實作 LINE webhook、模型呼叫、真實對話匯入或 AI 複核。"
+  ]
+}
