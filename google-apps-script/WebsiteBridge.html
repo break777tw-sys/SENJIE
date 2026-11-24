@@ -1,18 +1,27 @@
 <!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SENJIE Google 安全連線</title>
+<title>正在返回 SENJIE</title>
 <style>body{font:18px system-ui;max-width:580px;margin:50px auto;padding:24px;color:#17372d;line-height:1.7;background:#f5f8f5}</style>
-<h1>SENJIE 已完成 Google 登入</h1><p id="state">正在連回你的網站。</p><p>請保留這個連線視窗，回到 SENJIE 網站繼續操作。登出網站時會一併關閉連線。</p>
+<h1>正在返回 SENJIE</h1><p id="state">正在完成登入。</p><button id="return" type="button" hidden>返回網站</button>
 <script>
 const config=<?!= config ?>;let host;
 try{host=window.top.opener;}catch{}
 if(!host)document.querySelector('#state').textContent='請從 SENJIE 網站的登入按鈕開啟這個視窗。';
 else{
+  const returnToSite=()=>{try{host.focus();}catch{}};
+  document.querySelector('#return').addEventListener('click',returnToSite);
   host.postMessage({type:'senjie-ready',channel:config.channel},config.origin);
   window.addEventListener('message',event=>{
     const request=event.data;
     if(event.origin!==config.origin||event.source!==host||request?.type!=='senjie-call'||request.channel!==config.channel||typeof request.id!=='string'||!/^[a-f0-9-]{36}$/.test(request.id))return;
     const reply=data=>host.postMessage({type:'senjie-result',channel:config.channel,id:request.id,...data},config.origin);
-    google.script.run.withSuccessHandler(result=>{document.querySelector('#state').textContent='已安全連回 SENJIE 網站。';reply({ok:true,result});})
+    google.script.run.withSuccessHandler(result=>{
+      reply({ok:true,result});
+      if(request.method==='session'&&result?.authenticated===true){
+        document.querySelector('#state').textContent='登入完成。';
+        document.querySelector('#return').hidden=false;
+        returnToSite();
+      }
+    })
       .withFailureHandler(error=>reply({ok:false,error:String(error.message||'操作未完成。')}))
       .websiteBridgeCall({method:request.method,payload:request.payload});
   });

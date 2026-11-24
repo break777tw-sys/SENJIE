@@ -1,5 +1,5 @@
 // Google and the existing server allowlist still authorize every operation.
-// No account, token or browser-specific activation is stored by this page.
+// No account or token is persisted; sign-in needs no browser-specific activation.
 import { GOOGLE_SIGN_IN_URL } from './site-config.js';
 export function createPopupTransport(env=globalThis.window) {
   const pending=new Map();
@@ -46,6 +46,7 @@ export function createPopupTransport(env=globalThis.window) {
         session=identity;
         const done=opening;opening=null;if(done){env.clearTimeout(done.timer);done.resolve(identity);}
         notify();
+        try{env.focus();}catch{} // Return to the site after Google verifies identity.
       }catch(error){disconnect(error.message);}
       return;
     }
@@ -64,7 +65,7 @@ export function createPopupTransport(env=globalThis.window) {
     onConnectionChange(fn){listener=fn;notify();},
     login(){
       if(session&&popup&&!popup.closed)return Promise.resolve(session);
-      if(opening)return Promise.reject(new Error('請完成已開啟的 Google 登入視窗。'));
+      if(opening)return Promise.reject(new Error('登入處理中，請稍候。'));
       let configured;
       try{configured=endpoint(GOOGLE_SIGN_IN_URL);}
       catch{return Promise.reject(new Error('暫時無法開啟登入，請稍後再試。'));}
@@ -72,7 +73,7 @@ export function createPopupTransport(env=globalThis.window) {
       const url=new URL(configured);url.searchParams.set('senjieBridge','1');url.searchParams.set('origin',env.location.origin);url.searchParams.set('channel',channel);
       popup=env.open(url.href,'senjie-private-connection-'+channel,'popup,width=700,height=700');
       if(!popup)return Promise.reject(new Error('請允許這個網站開啟 Google 登入視窗。'));
-      closedTimer=env.setInterval(()=>{if(popup?.closed)disconnect('Google 連線視窗已關閉，請重新登入。');},1000);
+      closedTimer=env.setInterval(()=>{if(popup?.closed)disconnect('登入已結束，請重新登入。');},1000);
       return new Promise((resolve,reject)=>{
         const timer=env.setTimeout(()=>disconnect('登入尚未完成，請重新登入。'),180000);
         opening={resolve,reject,timer};

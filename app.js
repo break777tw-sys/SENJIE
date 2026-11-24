@@ -230,7 +230,7 @@ if(transport){
       }
     });
     $('#site-login').addEventListener('click',async()=>{
-      $('#site-login').disabled=true;$('#auth-status').textContent='請在 Google 視窗完成登入。';
+      $('#site-login').disabled=true;$('#auth-status').textContent='正在登入…';
       try{await transport.login();await refresh();document.querySelector('[data-connection="sheets"]').textContent=loaded?'已讀取 Google 資料':'讀取失敗';}
       catch(error){$('#auth-status').textContent=error.message;}
       finally{$('#site-login').disabled=false;}

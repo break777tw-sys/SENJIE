@@ -12,7 +12,7 @@ function browser({hash='',storageDenied=false}={}){
  const popup={closed:false,close(){this.closed=true;}};popup.top=popup;
  const peer={top:popup,postMessage(data,origin){sent.push({data,origin});}};
  const origin='https://n-example-script.googleusercontent.com';
- const env={crypto:{randomUUID,getRandomValues:a=>webcrypto.getRandomValues(a)},location:{hash,origin:'https://break777tw-sys.github.io',hostname:'break777tw-sys.github.io',pathname:'/SENJIE/',search:''},localStorage:{getItem:k=>{if(storageDenied)throw Error('Storage denied');return storage.get(k);},setItem:(k,v)=>{if(storageDenied)throw Error('Storage denied');return storage.set(k,v);}},history:{replaceState(...args){env.replaced=args;}},addEventListener:(name,fn)=>handlers[name]=fn,open(url){env.opened=new URL(url);return popup;},setTimeout:(fn,ms)=>{timers.set(++seq,{fn,ms});return seq;},clearTimeout:id=>timers.delete(id),setInterval:fn=>{env.closedCheck=fn;return 99;},clearInterval(){env.closedCheck=null;}};
+ const env={crypto:{randomUUID,getRandomValues:a=>webcrypto.getRandomValues(a)},focus(){env.focusCalls=(env.focusCalls||0)+1;},location:{hash,origin:'https://break777tw-sys.github.io',hostname:'break777tw-sys.github.io',pathname:'/SENJIE/',search:''},localStorage:{getItem:k=>{if(storageDenied)throw Error('Storage denied');return storage.get(k);},setItem:(k,v)=>{if(storageDenied)throw Error('Storage denied');return storage.set(k,v);}},history:{replaceState(...args){env.replaced=args;}},addEventListener:(name,fn)=>handlers[name]=fn,open(url){env.opened=new URL(url);return popup;},setTimeout:(fn,ms)=>{timers.set(++seq,{fn,ms});return seq;},clearTimeout:id=>timers.delete(id),setInterval:fn=>{env.closedCheck=fn;return 99;},clearInterval(){env.closedCheck=null;}};
  const transport=createPopupTransport(env),event=(data,source=peer,eventOrigin=origin)=>handlers.message({data,source,origin:eventOrigin});
  const ready=()=>event({type:'senjie-ready',channel:env.opened.searchParams.get('channel')});
  const reply=async(result,ok=true)=>{const request=sent.at(-1).data;await event({type:'senjie-result',channel:request.channel,id:request.id,ok,...(ok?{result}:{error:result})});};
@@ -21,14 +21,14 @@ function browser({hash='',storageDenied=false}={}){
 }
 test('登入前不讀資料；只在Google身分回覆後開通原介面',async()=>{
  const b=browser();await assert.rejects(b.transport.list(),/請先登入/);await b.signIn();
- assert.equal(b.transport.session.email,'owner@example.test');
+ assert.equal(b.transport.session.email,'owner@example.test');assert.equal(b.env.focusCalls,1);
  const result=b.transport.list();assert.equal(b.sent.at(-1).data.method,'listCards');assert.equal(b.sent.at(-1).origin,b.origin);
  await b.reply({cards:[{id:'F001',version:2}]});assert.equal((await result).cards[0].version,2);b.transport.logout();
 });
 test('相同nonce仍拒絕其他視窗、其他Google來源樹與非Google來源',async()=>{
  const b=browser(),login=b.transport.login(),channel=b.env.opened.searchParams.get('channel');
  for(const [source,origin] of [[{top:{}},b.origin],[b.peer,'https://evil.example'],[b.peer,'https://script.googleusercontent.com.evil.example']])await b.event({type:'senjie-ready',channel},source,origin);
- await b.event({type:'senjie-ready',channel:'0'.repeat(32)});assert.equal(b.sent.length,0);
+ await b.event({type:'senjie-ready',channel:'0'.repeat(32)});assert.equal(b.sent.length,0);assert.equal(b.env.focusCalls,undefined);
  const ready=b.ready();await b.reply({authenticated:true,email:'owner@example.test'});await ready;await login;b.transport.logout();
 });
 test('Google失敗不轉成成功；登出拒絕進行中讀取並清除身分',async()=>{
