@@ -51,16 +51,16 @@ function originalButton(source,label='開啟 Drive 原圖'){return `<button type
 function openCard(id){
   if(!loaded||saving)return;
   pendingRequest=null;
-  editing=cards.find(c=>c.id===id)||{id:transport?'':`DEMO${String(++sequence).padStart(4,'0')}`,name:'',alias:'',company:'',role:'',city:'',category:'文化表演',status:'待確認',offers:'',needs:'',notes:'',next:'',date:'',phone:'',email:'',line:'',address:'',source:transport?'網站手動建檔':'本次頁面手動新增',tone:sequence%3};
+  editing=cards.find(c=>c.id===id)||{id:transport?'':`DEMO${String(++sequence).padStart(4,'0')}`,name:'',alias:'',company:'',role:'',city:'',category:'',status:'待確認',offers:'',needs:'',notes:'',next:'',date:'',phone:'',email:'',line:'',address:'',source:transport?'網站手動建檔':'本次頁面手動新增',tone:sequence%3};
   $('#detail-form').reset();
   $('#detail-title').textContent=editing.name||(transport?'新增名片':'新增範例名片');$('#detail-id').textContent=editing.id;
   for(const [key,value] of Object.entries(editing)){const input=$('#detail-form').elements.namedItem(key);if(input)input.value=value;}
-  $('#duplicate-warning').hidden=true;$('#detail').showModal();
+  $('#duplicate-warning').hidden=true;$('#detail-feedback').hidden=true;$('#detail-feedback').textContent='';$('#detail').showModal();
   reviewSources=null;$('#archive-confirmation').hidden=true;$('#review-evidence').hidden=true;
   $('#field-checks').innerHTML='';$('#detail-form [type="submit"]').textContent=transport?'保存至 Google':'套用本次修改';
   $('#source-links').innerHTML=(editing.provenance?.sources||[]).map(s=>`<p>${escape(s.side)} · ${originalButton(s)} · ${escape(s.id)}</p>`).join('');
 }
-function notify(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').hidden=true,5000);}
+function notify(message){if($('#detail').open){$('#detail-feedback').textContent=message;$('#detail-feedback').hidden=false;}$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').hidden=true,5000);}
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>navigate(button.dataset.view)));
 document.querySelectorAll('[data-route]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();navigate(link.dataset.route);}));
 $('#card-brand').addEventListener('click',event=>{event.preventDefault();navigate('cards');});
@@ -166,7 +166,7 @@ $('#review-selected').addEventListener('click',()=>{
   const selected=[...document.querySelectorAll('[data-source]:checked')].map(i=>({id:i.dataset.source,side:document.querySelector(`[data-side="${i.dataset.source}"]`).value}));
   if(!selected.length||selected.length>10){notify('請選取同一張實體名片的 1–10 張來源。');return;}
   if(archiveRecoveries.some(r=>r.sources.some(s=>selected.some(x=>x.id===s.id)))){notify('這些來源的人物已保存，請先使用收件匣的「續辦來源歸檔」。');return;}
-  openCard(null);reviewSources=selected;editing.status='已確認';
+  openCard(null);reviewSources=selected;editing.status='已確認';$('#detail-form').elements.source.value='照片確認歸檔';
   $('#detail-title').textContent='核對同一張名片後歸檔';$('#detail-form').elements.status.value='已確認';
   $('#archive-confirmation').hidden=false;$('#review-evidence').hidden=false;$('#confirm-one-card').checked=false;
   $('#detail-form [type="submit"]').textContent='確認並歸檔至 Google';

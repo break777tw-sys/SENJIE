@@ -79,3 +79,10 @@ test('Google連線在本機讀圖期間失效：清除待重試圖片，拒絕�
  assert.equal(page.nodes.get('card-grid').innerHTML,'');assert.equal(page.nodes.get('jobs').innerHTML,'');
  assert.equal(page.nodes.get('.notice').textContent,'');assert.equal(page.nodes.get('.notice').hidden,true);assert.equal(page.nodes.get('auth-status').textContent,'使用 Google 帳號登入');
 });
+
+test('照片歸檔未確認時顯示彈窗內的錯誤，不猜分類且不寫人物',async()=>{
+ const env=setup(),source=env.c.uploadPhoto({...upload,requestId:'review-visible-error-0001'}).source;
+ const page=await mountApp(env);page.selectSources([source]);await page.openReview();
+ assert.equal(page.fields.category.value,'');assert.equal(page.fields.source.value,'照片確認歸檔');page.fields.name.value='Fictional Review';await page.save();
+ assert.equal(page.nodes.get('detail').open,true);assert.equal(page.nodes.get('detail-feedback').hidden,false);assert.match(page.nodes.get('detail-feedback').textContent,/請確認同一張/);assert.equal(env.c.listCards().cards.length,0);
+});

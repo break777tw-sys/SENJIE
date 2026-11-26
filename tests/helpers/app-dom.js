@@ -24,9 +24,9 @@ export async function mountApp(backend,options={}){
  const buttons=[...html.matchAll(/<button\b[^>]*\bdata-view="([^"]+)"[^>]*>/g)].map(m=>{const node=new Element();node.dataset.view=m[1];return node;});
  const links=[...html.matchAll(/<a\b([^>]*\bid="([^"]+)"[^>]*\bdata-route="([^"]+)"[^>]*)>/g)].map(m=>{const node=nodes.get(m[2]);node.dataset.route=m[3];node.setAttribute('href',m[1].match(/href="([^"]+)"/)[1]);return node;});
  const brand=nodes.get('card-brand');brand.setAttribute('href','#cards');
- const fields=[...html.matchAll(/<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"/g)].map(m=>{const f=new Element();f.name=m[1];return f;});
+ const fields=[...html.slice(html.indexOf('<form id="detail-form"')).matchAll(/<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"/g)].map(m=>{const f=new Element();f.name=m[1];return f;});
  fields.namedItem=name=>fields.find(f=>f.name===name)||null;for(const f of fields)fields[f.name]=f;
- const form=nodes.get('detail-form'),submit=new Element('submit');form.elements=fields;form.reset=()=>fields.forEach(f=>f.value=f.name==='category'?'文化表演':f.name==='status'?'待確認':'');form.querySelector=()=>submit;
+ const form=nodes.get('detail-form'),submit=new Element('submit');form.elements=fields;form.reset=()=>fields.forEach(f=>f.value=f.name==='status'?'待確認':'');form.querySelector=()=>submit;
  const detail=nodes.get('detail');detail.open=false;detail.showModal=()=>detail.open=true;detail.close=()=>detail.open=false;
  const checks=nodes.get('field-checks');Object.defineProperty(checks,'innerHTML',{get(){return this._html;},set(value){this._html=value;this.inputs=[...value.matchAll(/value="([^"]+)"/g)].map(m=>{const input=new Element();input.value=m[1];return input;});}});
  let selected=[];const sides=new Map();
