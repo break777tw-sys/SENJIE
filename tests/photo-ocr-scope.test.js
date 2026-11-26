@@ -9,6 +9,7 @@ test('OCR只用已核准drive.file與原圖相同位元組；保留原文且未�
  const e=createFakeGoogle(),source=e.c.uploadPhoto(request).source;
  const ready=e.c.recognizePhoto({sourceId:source.id,mime:image.mime,data:image.base64}).source;
  assert.equal(ready.state,'ready');assert.equal(ready.candidates.name,'Fictional Person');assert.equal(ready.candidates.phone,'0900000022');assert.equal(e.c.listCards().cards.length,0);
+ const creation=e.driveCalls.find(c=>c.method==='create'&&c.meta.mimeType==='application/vnd.google-apps.document');assert.equal(Object.hasOwn(creation.opts,'ocrLanguage'),false);
  assert.match(ready.ocrText,/Company: Example Invalid/);assert.equal(e.files.size,2);e.c.recognizePhoto({sourceId:source.id});assert.equal(e.files.size,2);
  const code=readFileSync(new URL('../google-apps-script/Imports.gs',import.meta.url),'utf8');assert.doesNotMatch(code,/DriveApp|DocumentApp|UrlFetchApp|getOAuthToken/);
  const manifest=JSON.parse(readFileSync(new URL('../deployment/photo-manual-runtime-manifest.json',import.meta.url),'utf8'));assert.ok(manifest.dependencies.enabledAdvancedServices.some(s=>s.serviceId==='docs'));assert.equal(manifest.oauthScopes.length,3);

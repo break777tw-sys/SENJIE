@@ -129,7 +129,7 @@ function recognizePhoto(request){return importLock_(user=>{
         if(typeof request.data!=='string')throw new Error('請重新上傳同一原圖以重試辨識；已保存的原圖不會重複建立。');
         const blob=imageBlob_(request.data,request.mime,'ocr-input');
         if(request.mime!==source.mime||blob.getBytes().length!==source.bytes||hashBytes_(blob.getBytes())!==source.hash)throw new Error('辨識圖片與已保存原圖不符。');
-        docId=Drive.Files.create({name:source.hash+'-OCR',mimeType:'application/vnd.google-apps.document',parents:[parent],appProperties:{senjieRole:'ocr',sourceSHA256:source.hash}},blob,{ocrLanguage:'zh',fields:'id'}).id;
+        docId=Drive.Files.create({name:source.hash+'-OCR',mimeType:'application/vnd.google-apps.document',parents:[parent],appProperties:{senjieRole:'ocr',sourceSHA256:source.hash}},blob,{fields:'id'}).id;
       }
     }
     const saved=appendSource_(sheet,{...source,ocrDocumentId:docId,state:'recognizing',error:''});
