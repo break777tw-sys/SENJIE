@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SENJIE｜單筆唯讀隔離候選</title><link rel="stylesheet" href="demo.css"></head>
+<body><main>
+<header><a href="../github-main/">SENJIE</a><span>候選 C1 · 單筆唯讀</span></header>
+<aside class="notice"><strong>全部虛構 · 尚未接真 Google 登入或資料 API</strong><p>此頁只驗前端互動與離線模擬回應，不會存取名片、LINE 或模型。重新整理就清除本頁登入與資料。</p></aside>
+<h1>帳號與單筆資料</h1><p class="muted">在獨立的虛構登入視窗選擇 A 或 B，檢查讀取及拒絕存取後的畫面。</p>
+<section class="account"><div><strong id="identity">尚未登入</strong><p id="message" role="status" aria-live="polite">正在準備虛構登入…</p></div><div class="actions"><button id="login" disabled>以虛構 Google 身分登入</button><button id="logout" class="secondary">登出</button><button id="refresh" class="secondary">重新讀取</button></div></section>
+<article id="record" hidden><h2>一筆示例</h2><p class="badge">虛構、未發 LINE、未證真模型</p><dl id="fields"></dl></article>
+<section class="test-panel"><h2>離線驗收控制</h2><label for="scenario">下一次模擬 API 回應</label><select id="scenario"><option value="normal">依虛構身分：A 成功／B 拒絕</option><option value="401">401：憑證不接受</option><option value="403">403：身分無權限</option><option value="404">404：尚無資料</option><option value="503">503：服務暫時不可用</option><option value="malformed">200：錯誤欄位</option><option value="network">網路結果未知</option></select><p class="muted">更換選項後按「重新讀取」。這些 HTTP 狀態只由本頁模擬器產生，不是雲端拒絕或真人登入證據。</p><pre id="trace" aria-label="本頁模擬呼叫摘要">尚無模擬資料呼叫</pre></section>
+<footer>版本：SENJIE-WEB-READONLY-C1。正式入口與名片作業未改動。</footer>
+</main><script type="module" src="demo.js"></script></body></html>
