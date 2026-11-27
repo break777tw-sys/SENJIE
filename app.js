@@ -143,7 +143,10 @@ async function processUploadQueue(){
         item.state='recognizing';renderUploadProgress();
         const recognized=await transport.recognize(item.sourceId,{data:item.request.data,mime:item.request.mime});
         item.sourceState=recognized.source.state;
-        if(item.sourceState==='error')throw new Error(recognized.source.error||'辨識未完成，原圖已保存，可重試。');
+        if(item.sourceState==='error'){
+          if(item.file.type==='image/webp'||item.file.size>2*1024*1024){item.error=recognized.source.error||'請對照原圖手動確認。';item.sourceState='manual';}
+          else throw new Error(recognized.source.error||'辨識未完成，原圖已保存，可重試。');
+        }
       }
       item.state=item.sourceState==='archived'?'archived':item.sourceState==='ready'?'ready':'manual';
     }catch(error){item.state='error';item.error=error.message||'處理未完成，可重試。';}
@@ -159,7 +162,7 @@ async function processUploadQueue(){
 async function receive(files){
   if(!transport||!loaded||!photoReady){notify('照片上傳尚未開放；未送出圖片。');return;}
   if(importBusy){notify('上一批仍在處理，請稍候。');return;}
-  if(uploadQueue.some(i=>i.state==='error')){notify('請先重試本批失敗項目，再選擇下一批。已保存的原圖不會重傳。');return;}
+  if(uploadQueue.some(i=>i.state==='error'&&!i.sourceId)){notify('請先重試本批失敗項目，再選擇下一批。已保存的原圖不會重傳。');return;}
   uploadBatchId=crypto.randomUUID();
   uploadQueue=Array.from(files,file=>({file,state:!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024||file.name.length>180?'rejected':'queued'}));
   await processUploadQueue();

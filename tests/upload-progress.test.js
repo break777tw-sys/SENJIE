@@ -43,3 +43,10 @@ test('已歸檔但無下一步的人物仍有合作追蹤編輯入口',async()=>
  const env=createFakeGoogle({properties:{PHOTO_IMPORTS_ENABLED:'true'}});env.c.saveCard({requestId:'followup-empty-0001',card:{name:'Fictional no next',status:'待確認'}});const page=await mountApp(env);
  assert.match(page.nodes.get('followup-list').innerHTML,/Fictional no next/);assert.match(page.nodes.get('followup-list').innerHTML,/尚未設定下一步/);assert.match(page.nodes.get('followup-list').innerHTML,/查看與修改/);
 });
+
+test('WebP保存成功但不支援OCR時顯示手動核對，不能卡住下一批',async()=>{
+ const env=createFakeGoogle({properties:{PHOTO_IMPORTS_ENABLED:'true'}}),page=await mountApp(env,{FileReader:Reader});
+ const webp={name:'QA-manual.webp',type:'image/webp',size:12,data:Buffer.from('RIFF0000WEBP').toString('base64')};
+ await upload(page,[webp]);assert.match(page.nodes.get('upload-queue').innerHTML,/已保存・請手動核對/);assert.match(page.nodes.get('import-progress').textContent,/失敗 0 張/);
+ await upload(page,[file(40)]);assert.equal(env.c.listImports().sources.length,2);assert.match(page.nodes.get('import-progress').textContent,/原圖已保存 1 張/);
+});
