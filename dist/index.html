@@ -224,7 +224,7 @@ function initConversations({transport,escape}){
 const transport=createTransport();
 let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.length, saving=false, pendingRequest=null, loaded=!transport;
 let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false,photoReady=false,photoOCR=false,connectionEpoch=0;
-let uploadQueue=[],uploadBatchId='';
+let uploadQueue=[],uploadBatchId='',hasCarriedUploads=false;
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
 const routeLabels={home:'SENJIE 總入口',conversations:'對話與偏好',...labels};let activeView=null;
@@ -336,7 +336,7 @@ const fileData=file=>new Promise((resolve,reject)=>{const reader=new FileReader(
 function renderUploadProgress(){
   const total=uploadQueue.length,saved=uploadQueue.filter(i=>i.sourceId).length,finished=uploadQueue.filter(i=>['ready','manual','archived','rejected'].includes(i.state)).length;
   const failed=uploadQueue.filter(i=>i.state==='error').length,pending=uploadQueue.filter(i=>i.state==='queued').length;
-  $('#import-progress').textContent=total?`本批 ${total} 張：原圖已保存 ${saved} 張；處理完成 ${finished} 張；失敗 ${failed} 張；排隊 ${pending} 張。${importBusy?'正在處理，請保持此頁開啟。':'已保存的照片在下方收件匣；確認並歸檔後才會出現在名片資料庫。'}`:'';
+  $('#import-progress').textContent=total?`${hasCarriedUploads?'上傳清單（含先前未完成項目）':'本批'} ${total} 張：原圖已保存 ${saved} 張；處理完成 ${finished} 張；失敗 ${failed} 張；排隊 ${pending} 張。${importBusy?'正在處理，請保持此頁開啟。':'已保存的照片在下方收件匣；確認並歸檔後才會出現在名片資料庫。'}`:'';
   $('#upload-global').hidden=!importBusy;$('#upload-global').textContent=importBusy?`正在處理名片照片：${saved}／${total} 張原圖已保存；請保持此頁開啟。`:'';
   $('#upload-meter').max=total||1;$('#upload-meter').value=finished+failed;$('#upload-meter').hidden=!total;
   const states={queued:'排隊中',reading:'讀取檔案',uploading:'上傳原圖中',saved:'原圖已保存',recognizing:'辨識中',ready:'已保存・待確認歸檔',manual:'已保存・請手動核對',archived:'已歸檔',rejected:'格式／大小不符',error:'失敗・可重試'};
@@ -380,9 +380,9 @@ async function processUploadQueue(){
 async function receive(files){
   if(!transport||!loaded||!photoReady){notify('照片上傳尚未開放；未送出圖片。');return;}
   if(importBusy){notify('上一批仍在處理，請稍候。');return;}
-  if(uploadQueue.some(i=>i.state==='error'&&!i.sourceId)){notify('請先重試本批失敗項目，再選擇下一批。已保存的原圖不會重傳。');return;}
-  uploadBatchId=crypto.randomUUID();
-  uploadQueue=Array.from(files,file=>({file,state:!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024||file.name.length>180?'rejected':'queued'}));
+  const unfinished=uploadQueue.filter(i=>['error','queued'].includes(i.state));
+  hasCarriedUploads=unfinished.length>0;uploadBatchId=crypto.randomUUID();
+  uploadQueue=[...unfinished,...Array.from(files,file=>({file,state:!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024||file.name.length>180?'rejected':'queued'}))];
   await processUploadQueue();
 }
 function renderImports(){
@@ -446,7 +446,7 @@ window.addEventListener('beforeunload',event=>{
 });
 render();
 function clearWorkspace(){
-  connectionEpoch++;uploadQueue=[];photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;
+  connectionEpoch++;uploadQueue=[];hasCarriedUploads=false;photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;
   previewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
   cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;
   $('#search').value='';$('#category').value='';$('#status').value='';

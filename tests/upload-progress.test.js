@@ -50,3 +50,14 @@ test('WebP保存成功但不支援OCR時顯示手動核對，不能卡住下一�
  await upload(page,[webp]);assert.match(page.nodes.get('upload-queue').innerHTML,/已保存・請手動核對/);assert.match(page.nodes.get('import-progress').textContent,/失敗 0 張/);
  await upload(page,[file(40)]);assert.equal(env.c.listImports().sources.length,2);assert.match(page.nodes.get('import-progress').textContent,/原圖已保存 1 張/);
 });
+
+test('永久失敗的檔案保留可重試，但不得封鎖下一批正常照片',async()=>{
+ const env=createFakeGoogle({properties:{PHOTO_IMPORTS_ENABLED:'true'}}),page=await mountApp(env,{FileReader:Reader});
+ const invalid={name:'QA-corrupt.png',type:'image/png',size:12,data:Buffer.from('not an image').toString('base64')};
+ await upload(page,[invalid,file(50)]);assert.equal(env.c.listImports().sources.length,1);
+ const originalFailed=page.calls.find(c=>c.name==='uploadPhoto'&&c.payload.name===invalid.name).payload;
+ await upload(page,[file(51)]);assert.equal(env.c.listImports().sources.length,2);
+ assert.match(page.nodes.get('upload-queue').innerHTML,/QA-corrupt.png/);assert.match(page.nodes.get('upload-queue').innerHTML,/QA-batch-51.png/);
+ const retries=page.calls.filter(c=>c.name==='uploadPhoto'&&c.payload.name===invalid.name);assert.equal(retries.at(-1).payload.requestId,originalFailed.requestId);
+ assert.equal(env.c.listImports().sources.reduce((n,s)=>n+s.receipts.length,0),2);
+});
