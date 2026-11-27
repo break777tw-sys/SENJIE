@@ -26,5 +26,6 @@ export function initConversations({transport,escape}){
     finally{busy=false;if(at===epoch)save.disabled=!preference;}
   });
   root.querySelector('[data-demo-reload]').addEventListener('click',()=>{if(!busy)load();});
+  transport?.onAccessDenied?.(()=>{clear();status.textContent='存取未通過，請重新讀取。';});
   load();return {load,clear};
 }

@@ -172,10 +172,20 @@ function createSignInTransport(env=globalThis.window) {
 // Google authorizes every operation; the public site only starts sign-in.
 function createTransport(bridge = globalThis.google?.script?.run) {
   if (!bridge) return globalThis.document?.documentElement?.dataset.runtime==='connected'?createSignInTransport():null;
+  const accessDeniedListeners=new Set();let accessEpoch=0;
   const call=(method,payload)=>new Promise((resolve,reject)=>{
-    bridge.withSuccessHandler(resolve).withFailureHandler(error=>reject(new Error(error?.message||'Google 服務未回應')))[method](payload);
+    const epoch=accessEpoch;
+    const stale=()=>reject(new Error('存取狀態已更新，請重新讀取。'));
+    bridge.withSuccessHandler(result=>{if(epoch!==accessEpoch){stale();return;}resolve(result);}).withFailureHandler(failure=>{
+      if(epoch!==accessEpoch){stale();return;}
+      const error=new Error(failure?.message||'Google 服務未回應');
+      if(/拒絕存取(?:[:：]|$)/.test(error.message)){
+        accessEpoch++;
+        try{for(const listener of accessDeniedListeners)listener();}finally{reject(error);}
+      }else reject(error);
+    })[method](payload);
   });
-  return {kind:'apps-script',conversations:()=>call('listConversations'),savePreference:request=>call('saveDemoPreference',request),list:()=>call('listCards'),save:request=>call('saveCard',request),imports:()=>call('listImports'),upload:request=>call('uploadPhoto',request),recognize:(sourceId,image)=>call('recognizePhoto',{sourceId,...image}),archive:request=>call('archivePhotos',request),resume:requestId=>call('resumePhotoArchive',{requestId}),original:sourceId=>call('verifyPhoto',{sourceId})};
+  return {kind:'apps-script',onAccessDenied(listener){accessDeniedListeners.add(listener);return ()=>accessDeniedListeners.delete(listener);},conversations:()=>call('listConversations'),savePreference:request=>call('saveDemoPreference',request),list:()=>call('listCards'),save:request=>call('saveCard',request),imports:()=>call('listImports'),upload:request=>call('uploadPhoto',request),recognize:(sourceId,image)=>call('recognizePhoto',{sourceId,...image}),archive:request=>call('archivePhotos',request),resume:requestId=>call('resumePhotoArchive',{requestId}),original:sourceId=>call('verifyPhoto',{sourceId})};
 }
 
 // A private, explicitly fictional rehearsal; no LINE/model transport exists here.
@@ -206,6 +216,7 @@ function initConversations({transport,escape}){
     finally{busy=false;if(at===epoch)save.disabled=!preference;}
   });
   root.querySelector('[data-demo-reload]').addEventListener('click',()=>{if(!busy)load();});
+  transport?.onAccessDenied?.(()=>{clear();status.textContent='存取未通過，請重新讀取。';});
   load();return {load,clear};
 }
 
@@ -434,6 +445,21 @@ window.addEventListener('beforeunload',event=>{
   previewUrls.forEach(url=>URL.revokeObjectURL(url));
 });
 render();
+function clearWorkspace(){
+  connectionEpoch++;uploadQueue=[];photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;
+  previewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
+  cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;
+  $('#search').value='';$('#category').value='';$('#status').value='';
+  $('#detail').close();$('#detail-form').reset();$('#detail-id').textContent='';$('#detail-title').textContent='人物資料';
+  $('#source-links').innerHTML='';$('#review-evidence').innerHTML='';$('#review-evidence').hidden=true;
+  $('#field-checks').innerHTML='';$('#archive-confirmation').hidden=true;$('#confirm-one-card').checked=false;
+  $('#duplicate-warning').textContent='';$('#duplicate-warning').hidden=true;
+  $('#detail-feedback').textContent='';$('#detail-feedback').hidden=true;
+  $('#toast').textContent='';$('#toast').hidden=true;$('#photos').value='';
+  render();renderImports();renderUploadProgress();
+  $('#retry-upload').hidden=true;$('#upload-global').hidden=true;$('#upload-global').textContent='';
+  $('#new-card').disabled=true;$('#photos').disabled=true;
+}
 async function refresh(){
   if(!transport)return;
   const epoch=connectionEpoch;loaded=false;photoReady=false;$('#photos').disabled=true;$('#new-card').disabled=true;
@@ -442,7 +468,8 @@ async function refresh(){
     const response=await transport.list();
     if(epoch!==connectionEpoch)return;
     if(response.schemaVersion!==1||!Array.isArray(response.cards))throw new Error('資料結構不符，停止載入。');
-    cards=response.cards;loaded=true;render();
+    cards=response.cards;loaded=true;if(document.documentElement)document.documentElement.dataset.auth='signed-in';
+    if(transport.kind==='apps-script')$('#auth-status').textContent='已使用 Google 帳號登入';render();
     photoReady=response.capabilities?.photoImport===true&&transport.session?.capabilities?.photoImport!==false;
     photoOCR=response.capabilities?.photoOCR===true;
     $('#photos').disabled=!photoReady;
@@ -460,6 +487,12 @@ async function refresh(){
 }
 $('#refresh').addEventListener('click',()=>{if(importBusy||saving){notify('請等待目前批次或保存完成。');return;}refresh();});
 if(transport){
+  transport.onAccessDenied?.(()=>{
+    clearWorkspace();if(document.documentElement)document.documentElement.dataset.auth='signed-out';
+    $('.mode').textContent='存取未通過';$('#auth-status').textContent='存取未通過，請重新讀取。';
+    $('.notice').hidden=false;$('.notice').textContent='存取未通過，請重新讀取。';
+    document.querySelector('[data-connection="sheets"]').textContent='存取未通過';
+  });
   $('#new-card').textContent='＋ 新增名片';
   $('.detail-notice').textContent='此頁經 Google 授權讀寫；儲存時會檢查版本。';
   $('#detail-form [type="submit"]').textContent='保存至 Google';
@@ -473,13 +506,7 @@ if(transport){
       $('#auth-status').textContent=connected?'已登入 '+session.email:'使用 Google 帳號登入';
       $('#refresh').disabled=!connected;
       if(!connected){
-        connectionEpoch++;uploadQueue=[];renderUploadProgress();photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;$('#photos').value='';$('#import-progress').textContent='';
-        previewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
-        $('#search').value='';$('#category').value='';$('#status').value='';$('#toast').textContent='';$('#toast').hidden=true;
-        cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;
-        $('#detail').close();$('#detail-form').reset();$('#new-card').disabled=true;$('#photos').disabled=true;
-        $('#source-links').innerHTML='';$('#review-evidence').innerHTML='';$('#field-checks').innerHTML='';
-        render();renderImports();$('.mode').textContent='尚未登入';$('.notice').textContent='';$('.notice').hidden=true;
+        clearWorkspace();$('.mode').textContent='尚未登入';$('.notice').textContent='';$('.notice').hidden=true;
         document.querySelector('[data-connection="sheets"]').textContent='登入後讀取';
       }
     });
