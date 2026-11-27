@@ -330,6 +330,17 @@
         "empty-next-followup"
       ],
       "required": true
+    },
+    {
+      "id": "github-main",
+      "title": "GitHub 主介面與網站身分驗證",
+      "controls": [],
+      "checks": [
+        "stay-github-after-login",
+        "authenticated-own-read-write",
+        "other-identity-denied"
+      ],
+      "required": true
     }
   ],
   "completionRule": "Every required check needs current live evidence, reviewer and time. Disabled, untested, blocked and mock-only are not passed.",
