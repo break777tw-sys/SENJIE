@@ -6,6 +6,7 @@ import { initConversations } from './conversations.js';
 const transport=createTransport();
 let cards=transport?[]:demoCards.map(c=>({...c})), editing=null, sequence=cards.length, saving=false, pendingRequest=null, loaded=!transport;
 let importSources=[],archiveRecoveries=[],reviewSources=null,importBusy=false,photoReady=false,photoOCR=false,connectionEpoch=0;
+let uploadQueue=[],uploadBatchId='';
 const $=s=>document.querySelector(s), escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cards:'名片資料庫',inbox:'名片收件匣',followups:'合作與追蹤',connections:'入口與資料'};
 const routeLabels={home:'SENJIE 總入口',conversations:'對話與偏好',...labels};let activeView=null;
@@ -44,8 +45,8 @@ function render(){
   $('#result-count').textContent=`顯示 ${result.length} 位／共 ${cards.length} 位${transport?'':'範例'}人物`;
   $('#empty').hidden=result.length>0;
   $('#card-grid').innerHTML=search.matches.map(({card:c,evidence})=>`<button class="person-card" data-id="${escape(c.id)}" aria-label="查看${escape(c.name)}"><div class="card-art tone-${Number(c.tone)||0}"><span class="initial">${escape(c.name.slice(0,1))}</span><span class="art-label">${transport?'人物資料':'虛構範例'}</span></div><div class="card-body"><div class="card-top"><h2>${escape(c.name)}</h2><span class="badge ${c.status==='待確認'?'review':''}">${escape(c.status)}</span></div><p class="alias">${escape(c.alias||'尚無別名')}</p><div class="company">${escape(c.company||'組織待補充')}</div><p class="role">${escape(c.role||'職稱待補充')} · ${escape(c.city||'地區待補充')}</p><div class="tags"><span class="tag">${escape(c.category)}</span><span class="tag">${escape(c.offers||'資源待補充')}</span></div>${evidence?`<div class="search-evidence"><strong>符合依據</strong>${evidence.fields.map(f=>`<p>${escape(f.label)}：「${escape(f.quote)}」<small>${escape(f.confirmation)}${f.sourceIds.length?' · '+escape(f.sourceIds.join('、')):''}</small></p>`).join('')}<small>${escape(evidence.recordId)} · ${evidence.version==null?'版本未提供':'版本'+escape(evidence.version)} · ${escape(evidence.source)}</small></div>`:''}<div class="card-bottom">${escape(c.next?'下一步：'+c.next:'尚未記錄下一步')}</div></div></button>`).join('');
-  const followups=cards.filter(c=>c.next).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
-  $('#followup-list').innerHTML=followups.length?followups.map(c=>`<article class="followup"><div><h2>${escape(c.name)} · ${escape(c.company)}</h2><p>${escape(c.next)}</p><p>追蹤日期：${escape(c.date||'未指定')} · 尚未建立提醒</p></div><button class="secondary" data-id="${escape(c.id)}">查看與修改</button></article>`).join(''):'<p class="empty">目前沒有下一步行動。</p>';
+  const followups=cards.slice().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  $('#followup-list').innerHTML=followups.length?followups.map(c=>`<article class="followup"><div><h2>${escape(c.name)} · ${escape(c.company)}</h2><p>${escape(c.next||'尚未設定下一步，請按「查看與修改」補填。')}</p><p>追蹤日期：${escape(c.date||'未指定')} · 尚未建立提醒</p></div><button class="secondary" data-id="${escape(c.id)}">查看與修改</button></article>`).join(''):'<p class="empty">目前沒有下一步行動。</p>';
 }
 function originalButton(source,label='開啟 Drive 原圖'){return `<button type="button" class="secondary" data-original="${escape(source.id)}">${escape(label)}</button>`;}
 function openCard(id){
@@ -99,7 +100,7 @@ $('#detail-form').addEventListener('submit',async e=>{
     }
     const at=cards.findIndex(c=>c.id===saved.id);if(at<0)cards.push(saved);else cards[at]=saved;
     render();$('#detail').close();notify(transport?'已保存至 Google，並通過讀回驗證。':'已套用本次頁面修改；尚未寫入 Google。');
-    if(reviewSources)await loadImports();
+    if(reviewSources){await loadImports();$('#search').value='';$('#category').value='';$('#status').value='';render();navigate('cards');notify('已歸檔至名片資料庫。到「合作與追蹤」可補填下一步及追蹤日期。');}
   }catch(error){
     const message=error.message||'保存失敗，未確認歸檔。';
     if(reviewSources&&transport){
@@ -114,34 +115,66 @@ $('#detail-form').addEventListener('submit',async e=>{
 });
 const previewUrls=[];
 const fileData=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('無法讀取圖片。'));reader.readAsDataURL(file);});
+function renderUploadProgress(){
+  const total=uploadQueue.length,saved=uploadQueue.filter(i=>i.sourceId).length,finished=uploadQueue.filter(i=>['ready','manual','archived','rejected'].includes(i.state)).length;
+  const failed=uploadQueue.filter(i=>i.state==='error').length,pending=uploadQueue.filter(i=>i.state==='queued').length;
+  $('#import-progress').textContent=total?`本批 ${total} 張：原圖已保存 ${saved} 張；處理完成 ${finished} 張；失敗 ${failed} 張；排隊 ${pending} 張。${importBusy?'正在處理，請保持此頁開啟。':'已保存的照片在下方收件匣；確認並歸檔後才會出現在名片資料庫。'}`:'';
+  $('#upload-global').hidden=!importBusy;$('#upload-global').textContent=importBusy?`正在處理名片照片：${saved}／${total} 張原圖已保存；請保持此頁開啟。`:'';
+  $('#upload-meter').max=total||1;$('#upload-meter').value=finished+failed;$('#upload-meter').hidden=!total;
+  const states={queued:'排隊中',reading:'讀取檔案',uploading:'上傳原圖中',saved:'原圖已保存',recognizing:'辨識中',ready:'已保存・待確認歸檔',manual:'已保存・請手動核對',archived:'已歸檔',rejected:'格式／大小不符',error:'失敗・可重試'};
+  $('#upload-queue').innerHTML=uploadQueue.map((i,n)=>`<li><strong>${n+1}. ${escape(i.file.name)}</strong><span>${escape(states[i.state])}${i.sourceId?' · 原圖已在雲端':''}</span>${i.error?`<p>${escape(i.error)}</p>`:''}</li>`).join('');
+  $('#retry-upload').hidden=!failed;$('#retry-upload').disabled=importBusy;
+}
+async function processUploadQueue(){
+  const epoch=connectionEpoch;importBusy=true;$('#photos').disabled=true;renderUploadProgress();
+  try{for(const item of uploadQueue){
+    if(epoch!==connectionEpoch||!loaded)break;
+    if(!['queued','error'].includes(item.state))continue;
+    item.error='';
+    try{
+      if(!item.request){item.state='reading';renderUploadProgress();item.request={requestId:crypto.randomUUID(),batchId:uploadBatchId,name:item.file.name,mime:item.file.type,data:await fileData(item.file)};}
+      if(epoch!==connectionEpoch||!loaded)break;
+      if(!item.sourceId){
+        item.state='uploading';renderUploadProgress();
+        const result=await transport.upload(item.request);
+        item.sourceId=result.source.id;item.sourceState=result.source.state;item.state='saved';renderUploadProgress();
+      }
+      if(photoOCR&&!['ready','archived'].includes(item.sourceState)){
+        item.state='recognizing';renderUploadProgress();
+        const recognized=await transport.recognize(item.sourceId,{data:item.request.data,mime:item.request.mime});
+        item.sourceState=recognized.source.state;
+        if(item.sourceState==='error')throw new Error(recognized.source.error||'辨識未完成，原圖已保存，可重試。');
+      }
+      item.state=item.sourceState==='archived'?'archived':item.sourceState==='ready'?'ready':'manual';
+    }catch(error){item.state='error';item.error=error.message||'處理未完成，可重試。';}
+    if(epoch!==connectionEpoch||!loaded)break;
+    renderUploadProgress();
+    // A failed readback must not prevent the rest of this batch from uploading.
+    try{await loadImports();}catch(error){notify('收件匣暫時無法更新：'+error.message);}
+  }}finally{
+    importBusy=false;$('#photos').disabled=!loaded||!photoReady;$('#photos').value='';
+    if(epoch===connectionEpoch){renderUploadProgress();renderImports();}
+  }
+}
 async function receive(files){
   if(!transport||!loaded||!photoReady){notify('照片上傳尚未開放；未送出圖片。');return;}
   if(importBusy){notify('上一批仍在處理，請稍候。');return;}
-  const epoch=connectionEpoch;importBusy=true;$('#photos').disabled=true;let added=0,rejected=0;const batchId=crypto.randomUUID();
-  try{for(const file of files){
-    if(epoch!==connectionEpoch||!loaded)break;
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024||file.name.length>180){rejected++;continue;}
-    $('#import-progress').textContent=`正在保存：${file.name}（完成 ${added} 張）`;
-    const request={requestId:crypto.randomUUID(),batchId,name:file.name,mime:file.type,data:await fileData(file)};
-    if(epoch!==connectionEpoch||!loaded)break;
-    // Keep the exact operation available for a retry after an ambiguous network result.
-    let response;
-    try{response=await transport.upload(request);}catch(error){if(epoch===connectionEpoch&&loaded)window.pendingPhotoRetry=request;throw error;}
-    if(epoch!==connectionEpoch||!loaded)break;
-    added++;await loadImports();
-    if(photoOCR&&!['ready','archived'].includes(response.source.state)){
-      $('#import-progress').textContent=`原圖已保存，正在辨識：${file.name}`;
-      const recognized=await transport.recognize(response.source.id,{data:request.data,mime:request.mime});await loadImports();
-      if(recognized.manualReview)notify('原圖已保存，請選取來源、逐欄核對後歸檔。');
-    }else if(!photoOCR)notify('原圖已保存，請選取來源、逐欄核對後歸檔。');
-  }}catch(error){notify(error.message);}
-  finally{importBusy=false;$('#photos').disabled=!loaded||!photoReady;$('#photos').value='';if(epoch!==connectionEpoch)return;$('#import-progress').textContent=`批次 ${batchId}：完成 ${added} 次收件${rejected?`；拒絕 ${rejected} 個格式／大小不符檔案`:''}。關閉頁面會中止未上傳部分；已保存來源可重新讀取。`;$('#retry-upload').hidden=!window.pendingPhotoRetry;}
+  if(uploadQueue.some(i=>i.state==='error')){notify('請先重試本批失敗項目，再選擇下一批。已保存的原圖不會重傳。');return;}
+  uploadBatchId=crypto.randomUUID();
+  uploadQueue=Array.from(files,file=>({file,state:!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024||file.name.length>180?'rejected':'queued'}));
+  await processUploadQueue();
 }
 function renderImports(){
   $('#archive-recoveries').innerHTML=archiveRecoveries.map(r=>`<article class="callout"><strong>人物已保存，來源待補齊：${escape(r.personName)}</strong><p>${escape(r.personId)} · ${r.sources.length} 面來源，待補 ${r.pendingSourceIds.length} 面。續辦沿用原人物及確認回條。</p>${r.blockedReason?`<p>${escape(r.blockedReason)}</p>`:`<button type="button" class="primary" data-resume="${escape(r.requestId)}">續辦來源歸檔</button>`}</article>`).join('');
+  const awaiting=importSources.filter(s=>s.state!=='archived').length;
+  $('#pending-photo-count').textContent=awaiting?`另有 ${awaiting} 張原圖待確認，尚未加入人物資料庫。`:'';
+  $('#pending-photo-link').hidden=!awaiting;
+  $('#followup-inbox').hidden=!awaiting;
+  $('#followup-inbox-count').textContent=`有 ${awaiting} 張原圖等待確認歸檔。請先完成建檔，再設定合作下一步。`;
+  $('#inbox-next').textContent=awaiting?`有 ${awaiting} 張原圖尚未歸檔。單張名片請按「確認此張並建檔」；正反面分檔則選取同一人的來源後一起確認。`:'目前沒有待歸檔原圖。已歸檔人物可到名片資料庫查看。';
   const receipts=importSources.reduce((n,s)=>n+s.receipts.length,0),archived=importSources.filter(s=>s.state==='archived');
   $('#import-counts').textContent=`累計收件 ${receipts} 次 · 不重複原圖 ${importSources.length} 張 · 已確認實體卡 ${new Set(archived.map(s=>s.physicalCardId)).size} 張 · 已歸檔人物 ${new Set(archived.map(s=>s.personId)).size} 位`;
-  $('#jobs').innerHTML=importSources.map(s=>`<article class="job"><div class="job-info"><strong>${escape(s.receipts[0].name)}</strong><p>${escape(s.id)} · 收件 ${s.receipts.length} 次 · ${escape(({saved:'原圖已保存',recognizing:'辨識待續',ready:'辨識完成／待確認',error:'辨識未完成',archived:'已確認歸檔'})[s.state])}</p>${originalButton(s)}<p>${escape(s.error||'')} · QR ${escape(s.qrStatus)}</p><details><summary>辨識原文與疑義</summary><pre>${escape(s.ocrText||'尚無可用辨識文字；可對照原圖手動確認。')}</pre><p>自動候選值仍待逐欄核對。無法確定的欄位留白；一張照片含多張實體卡時請先拆分，不可整張歸為一人。</p></details>${s.state==='archived'?`<p>實體卡 ${escape(s.physicalCardId)} · 人物 ${escape(s.personId)}</p>`:`<label><input type="checkbox" data-source="${escape(s.id)}"> 選取此來源</label><label>面別<select data-side="${escape(s.id)}"><option>正面</option><option>反面</option><option>補充</option></select></label>${photoOCR?`<button type="button" class="secondary" data-recognize="${escape(s.id)}">重新辨識／續辦</button>`:``}`}</div></article>`).join('');
+  $('#jobs').innerHTML=importSources.map(s=>`<article class="job"><div class="job-info"><strong>${escape(s.receipts[0].name)}</strong><p>${escape(s.id)} · 收件 ${s.receipts.length} 次 · ${escape(({saved:'原圖已保存',recognizing:'辨識待續',ready:'辨識完成／待確認',error:'辨識未完成',archived:'已確認歸檔'})[s.state])}</p>${originalButton(s)}<p>${escape(s.error||'')} · QR ${escape(s.qrStatus)}</p><details><summary>辨識原文與疑義</summary><pre>${escape(s.ocrText||'尚無可用辨識文字；可對照原圖手動確認。')}</pre><p>自動候選值仍待逐欄核對。無法確定的欄位留白；同一人的正反面在同一張照片時，面別選「正反面同圖」，只須確認一次。不同人的名片同框請先拆分，不可整張歸為一人。</p></details>${s.state==='archived'?`<p>已加入名片資料庫</p><button type="button" class="primary" data-person="${escape(s.personId)}">查看已歸檔人物</button><p>實體卡 ${escape(s.physicalCardId)} · 人物 ${escape(s.personId)}</p>`:`<label><input type="checkbox" data-source="${escape(s.id)}"> 選取此來源</label><label>面別<select data-side="${escape(s.id)}"><option>正面</option><option>反面</option><option>正反面同圖</option><option>補充</option></select></label><button type="button" class="primary" data-review="${escape(s.id)}">確認此張並建檔</button>${photoOCR?`<button type="button" class="secondary" data-recognize="${escape(s.id)}">重新辨識／續辦</button>`:``}`}</div></article>`).join('');
 }
 async function loadImports(){
   const epoch=connectionEpoch;
@@ -159,11 +192,18 @@ $('#archive-recoveries').addEventListener('click',async e=>{
   finally{importBusy=false;button.disabled=false;}
 });
 $('#reload-imports').addEventListener('click',()=>loadImports().catch(error=>notify(error.message)));
-$('#retry-upload').addEventListener('click',async()=>{if(importBusy||!loaded||!photoReady||!window.pendingPhotoRetry)return;importBusy=true;try{await transport.upload(window.pendingPhotoRetry);window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;await loadImports();notify('原圖重試已讀回；可繼續辨識。');}catch(error){notify(error.message);}finally{importBusy=false;}});
-$('#jobs').addEventListener('click',async e=>{const id=e.target.closest('[data-recognize]')?.dataset.recognize;if(!id||importBusy)return;importBusy=true;try{notify('正在辨識已保存的原圖。');await transport.recognize(id);await loadImports();}catch(error){notify(error.message);}finally{importBusy=false;}});
-$('#review-selected').addEventListener('click',()=>{
+$('#retry-upload').addEventListener('click',()=>{if(!importBusy&&loaded&&photoReady)processUploadQueue();});
+$('#jobs').addEventListener('click',async e=>{
+  const person=e.target.closest('[data-person]')?.dataset.person;
+  if(person){$('#search').value='';$('#category').value='';$('#status').value='';render();navigate('cards');openCard(person);return;}
+  const single=e.target.closest('[data-review]')?.dataset.review;
+  if(single){openPhotoReview([{id:single,side:document.querySelector(`[data-side="${single}"]`).value}]);return;}
+  const id=e.target.closest('[data-recognize]')?.dataset.recognize;if(!id||importBusy)return;importBusy=true;
+  try{notify('正在辨識已保存的原圖。');await transport.recognize(id);await loadImports();}catch(error){notify(error.message);}finally{importBusy=false;}
+});
+$('#review-selected').addEventListener('click',()=>openPhotoReview([...document.querySelectorAll('[data-source]:checked')].map(i=>({id:i.dataset.source,side:document.querySelector(`[data-side="${i.dataset.source}"]`).value}))));
+function openPhotoReview(selected){
   if(importBusy||!loaded)return;
-  const selected=[...document.querySelectorAll('[data-source]:checked')].map(i=>({id:i.dataset.source,side:document.querySelector(`[data-side="${i.dataset.source}"]`).value}));
   if(!selected.length||selected.length>10){notify('請選取同一張實體名片的 1–10 張來源。');return;}
   if(archiveRecoveries.some(r=>r.sources.some(s=>selected.some(x=>x.id===s.id)))){notify('這些來源的人物已保存，請先使用收件匣的「續辦來源歸檔」。');return;}
   openCard(null);reviewSources=selected;editing.status='已確認';$('#detail-form').elements.source.value='照片確認歸檔';
@@ -172,14 +212,17 @@ $('#review-selected').addEventListener('click',()=>{
   $('#detail-form [type="submit"]').textContent='確認並歸檔至 Google';
   const sources=selected.map(s=>importSources.find(x=>x.id===s.id));
   for(const key of ['name','company','role','phone','email','address']){const values=[...new Set(sources.map(s=>s.candidates[key]).filter(Boolean))];if(values.length===1)$('#detail-form').elements[key].value=values[0];}
-  $('#review-evidence').innerHTML=sources.map(s=>`<p>${originalButton(s,'對照原圖：'+s.receipts[0].name)}</p><pre>${escape(s.ocrText||'尚無辨識原文，請直接核對原圖。')}</pre>`).join('');
+  $('#review-evidence').innerHTML=`<p>確認保存後，這個人物會加入名片資料庫。來源面別：${selected.map(s=>escape(s.side)).join('、')}。</p>`+sources.map(s=>`<p>${originalButton(s,'對照原圖：'+s.receipts[0].name)}</p><pre>${escape(s.ocrText||'尚無辨識原文，請直接核對原圖。')}</pre>`).join('');
   $('#field-checks').innerHTML=[...$('#detail-form').elements].filter(i=>i.name&&i.name!=='source').map(i=>`<label><input type="checkbox" value="${escape(i.name)}"> 已核對「${escape(i.closest('label')?.childNodes[0].textContent||i.name)}」</label>`).join('');
-});
+}
 $('#detail-form').addEventListener('input',e=>{if(reviewSources&&e.target.name){const check=document.querySelector(`#field-checks input[value="${e.target.name}"]`);if(check)check.checked=false;pendingRequest=null;}});
 $('#photos').addEventListener('change',e=>receive(e.target.files));
 for(const event of ['dragenter','dragover'])$('#drop-zone').addEventListener(event,e=>{e.preventDefault();$('#drop-zone').classList.add('dragging');});
 for(const event of ['dragleave','drop'])$('#drop-zone').addEventListener(event,e=>{e.preventDefault();$('#drop-zone').classList.remove('dragging');if(event==='drop')receive(e.dataTransfer.files);});
-window.addEventListener('beforeunload',()=>previewUrls.forEach(url=>URL.revokeObjectURL(url)));
+window.addEventListener('beforeunload',event=>{
+  if(importBusy||saving||uploadQueue.some(i=>i.state==='error'&&!i.sourceId)){event.preventDefault();event.returnValue='';return;}
+  previewUrls.forEach(url=>URL.revokeObjectURL(url));
+});
 render();
 async function refresh(){
   if(!transport)return;
@@ -196,7 +239,7 @@ async function refresh(){
     $('#photo-access-note').hidden=photoReady;
     $('.mode').textContent='Google 資料已讀取';
     $('.notice').hidden=false;
-    $('.notice').textContent=`${response.dataLabel||'Google 資料'} · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。${photoReady?'照片請到收件匣保存並確認。':'目前可手動建檔與查詢；照片上傳尚未開放。'}`;
+    $('.notice').textContent=`Google 工作資料 · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。${photoReady?'照片請到收件匣保存並確認。':'目前可手動建檔與查詢；照片上傳尚未開放。'}`;
     await loadImports();
   }catch(error){
     if(epoch!==connectionEpoch)return;
@@ -205,7 +248,7 @@ async function refresh(){
     $('.notice').textContent=error.message+' 本頁未顯示舊資料或示範名片。';
   }finally{$('#new-card').disabled=!loaded;}
 }
-$('#refresh').addEventListener('click',refresh);
+$('#refresh').addEventListener('click',()=>{if(importBusy||saving){notify('請等待目前批次或保存完成。');return;}refresh();});
 if(transport){
   $('#new-card').textContent='＋ 新增名片';
   $('.detail-notice').textContent='此頁經 Google 授權讀寫；儲存時會檢查版本。';
@@ -220,7 +263,7 @@ if(transport){
       $('#auth-status').textContent=connected?'已登入 '+session.email:'使用 Google 帳號登入';
       $('#refresh').disabled=!connected;
       if(!connected){
-        connectionEpoch++;photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;$('#photos').value='';$('#import-progress').textContent='';
+        connectionEpoch++;uploadQueue=[];renderUploadProgress();photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;$('#retry-upload').hidden=true;$('#photos').value='';$('#import-progress').textContent='';
         previewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
         $('#search').value='';$('#category').value='';$('#status').value='';$('#toast').textContent='';$('#toast').hidden=true;
         cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;

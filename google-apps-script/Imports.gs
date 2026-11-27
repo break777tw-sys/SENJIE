@@ -105,7 +105,7 @@ function uploadPhoto(request){return importLock_(user=>{
 function extractCandidates_(text){
   const result={},lines=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   const labels={name:/^(?:姓名|Name)\s*[:：]\s*(.+)$/i,company:/^(?:公司|團體|Company)\s*[:：]\s*(.+)$/i,role:/^(?:職稱|Title)\s*[:：]\s*(.+)$/i,address:/^(?:地址|Address)\s*[:：]\s*(.+)$/i};
-  Object.keys(labels).forEach(key=>{const found=lines.map(line=>line.match(labels[key])?.[1]).filter(Boolean);if(found.length===1)result[key]=found[0];});
+  Object.keys(labels).forEach(key=>{const found=[...new Set(lines.map(line=>line.match(labels[key])?.[1]).filter(Boolean))];if(found.length===1)result[key]=found[0];});
   const emails=[...new Set(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[])];if(emails.length===1)result.email=emails[0];
   const phones=[...new Set(lines.filter(l=>/^(?:電話|手機|Tel|Mobile)\s*[:：]/i.test(l)).map(l=>l.replace(/^[^:：]+[:：]\s*/,'')))];if(phones.length===1)result.phone=phones[0];
   return result;
@@ -158,7 +158,7 @@ function archivePhotos(request){return importLock_(user=>{
   if(!request||request.confirmed!==true||!Array.isArray(request.sources)||request.sources.length<1||request.sources.length>10||new Set(request.sources.map(s=>s.id)).size!==request.sources.length)throw new Error('請確認同一張實體名片、同一人物與全部來源。');
   const clean=validateCard_(request.card);
   if(clean.status!=='已確認'||!Array.isArray(request.reviewedFields)||Object.keys(clean).some(k=>clean[k]&&!request.reviewedFields.includes(k)))throw new Error('請逐欄核對非空白內容後確認。');
-  if(request.sources.some(s=>!['正面','反面','補充'].includes(s.side)))throw new Error('請指定照片面別。');
+  if(request.sources.some(s=>!['正面','反面','正反面同圖','補充'].includes(s.side)))throw new Error('請指定照片面別。');
   const sheet=importSheet_(user),all=sources_(sheet),selected=request.sources.map(s=>all.find(x=>x.id===s.id&&x.actor===user.email));
   if(selected.some(s=>!s))throw new Error('來源不存在或無權存取。');
   const revisions=readRevisions_(records_(user)),existing=revisions.find(r=>r.requestId===request.requestId&&r.actor===user.email);

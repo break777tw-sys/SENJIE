@@ -25,7 +25,9 @@
         "route:cards",
         "route:inbox",
         "route:followups",
-        "route:connections"
+        "route:connections",
+        "pending-photo-link",
+        "followup-photo-link"
       ],
       "checks": [
         "home",
@@ -311,6 +313,21 @@
         "edit-preference",
         "reopen-readback",
         "unauthorized-rejected"
+      ],
+      "required": true
+    },
+    {
+      "id": "batch-workflow",
+      "title": "批次進度與歸檔後續",
+      "controls": [],
+      "checks": [
+        "seven-files-progress",
+        "failure-continues",
+        "retry-no-duplicate",
+        "leave-warning",
+        "same-image-front-back",
+        "archive-to-database",
+        "empty-next-followup"
       ],
       "required": true
     }
