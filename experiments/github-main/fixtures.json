@@ -1,0 +1,42 @@
+[
+  {
+    "event_id": "DEMO_EVENT_001",
+    "chat_id": "DEMO_CHAT_001",
+    "question": "請將虛構資訊『週五九點、藍色雨衣』改寫成一句親切提醒，使用繁體中文，不新增日期或地點。",
+    "answer": "週五九點，記得帶藍色雨衣。",
+    "status": "SIMULATED_REPLY_NOT_SENT",
+    "display_time": "2026-11-25T09:00:00+08:00",
+    "time_source": "FICTITIOUS_DISPLAY_TIME_NOT_MEASURED",
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10,
+      "total_tokens": 110,
+      "cached_tokens": 20,
+      "cache_write_tokens": 0
+    },
+    "usage_source": "V_FAKE_FIXTURE_NOT_OFFICIAL_MODEL_USAGE",
+    "estimated_fee_USD": "0.0000132",
+    "fee_source": "FAKE_USAGE_CONDITIONAL_FORMULA_NOT_BILL",
+    "actual_bill": "UNKNOWN_NOT_QUERIED",
+    "sent_to_LINE": false,
+    "same_chat_verified": false,
+    "live_model_verified": false
+  },
+  {
+    "event_id": "DEMO_EVENT_002",
+    "chat_id": "DEMO_CHAT_001",
+    "question": "這是第二回合虛構示例。請保留剛才的雨衣提醒，示範簡短的繁體中文回覆。",
+    "answer": "週五九點，記得帶藍色雨衣。",
+    "status": "SIMULATED_REPLY_NOT_SENT",
+    "display_time": null,
+    "time_source": "UNKNOWN_NOT_MEASURED",
+    "usage": null,
+    "usage_source": "UNKNOWN_NOT_MEASURED",
+    "estimated_fee_USD": null,
+    "fee_source": "UNKNOWN_NOT_MEASURED",
+    "actual_bill": "UNKNOWN_NOT_QUERIED",
+    "sent_to_LINE": false,
+    "same_chat_verified": false,
+    "live_model_verified": false
+  }
+]

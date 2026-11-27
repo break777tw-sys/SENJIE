@@ -319,7 +319,7 @@ if(transport){
   $('#detail-form [type="submit"]').textContent='保存至 Google';
   $('#refresh').hidden=false;
   document.querySelector('[data-connection="sheets"]').textContent='正在驗證';
-  if(transport.kind==='redirect'){
+  if(transport.kind==='redirect'||transport.kind==='web-api'){
     $('#auth-panel').hidden=false;
     transport.onConnectionChange(({connected,session})=>{
       if(document.documentElement)document.documentElement.dataset.auth=connected?'signed-in':'signed-out';

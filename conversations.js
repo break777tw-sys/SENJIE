@@ -6,7 +6,7 @@ export function initConversations({transport,escape}){
   let preference=null,pending=null,busy=false,epoch=0;
   function clear(){epoch++;preference=null;pending=null;content.innerHTML='';input.value='';save.disabled=true;status.textContent='登入後可讀取示例。';}
   async function load(){
-    if(transport?.kind!=='apps-script'){clear();return;}
+    if(transport?.kind!=='apps-script'&&!(transport?.kind==='web-api'&&transport.session)){clear();return;}
     const at=++epoch;save.disabled=true;preference=null;status.textContent='正在讀取示例…';content.innerHTML='';input.value='';
     try{
       const data=await transport.conversations();if(at!==epoch)return;
@@ -27,5 +27,6 @@ export function initConversations({transport,escape}){
   });
   root.querySelector('[data-demo-reload]').addEventListener('click',()=>{if(!busy)load();});
   transport?.onAccessDenied?.(()=>{clear();status.textContent='存取未通過，請重新讀取。';});
+  if(transport?.kind==='web-api')transport.onConnectionChange(({connected})=>{if(connected)load();else clear();});
   load();return {load,clear};
 }
