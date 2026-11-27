@@ -11,6 +11,7 @@
 .auth-panel{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:20px;margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:14px}.auth-panel[hidden]{display:none}.auth-panel p{margin:4px 0;font-size:15px;color:var(--muted)}[data-auth="signed-out"] .stats,[data-auth="signed-out"] #card-grid,[data-auth="signed-out"] .result-line,[data-auth="signed-out"] #empty,[data-auth="signed-out"] #followup-list{display:none}@media(max-width:700px){.auth-panel{align-items:stretch;flex-direction:column}.auth-panel button{width:100%}}
 
 #conversations textarea{display:block;width:100%;min-height:110px;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:8px}#conversations article{overflow-wrap:anywhere}#conversations label{display:block}#conversations form button{max-width:100%;white-space:normal}
+a[data-original]{display:inline-block;text-decoration:none;cursor:pointer;max-width:100%;overflow-wrap:anywhere}a[data-original][aria-disabled="true"]{color:var(--muted);cursor:progress}
 
 /* Batch status remains visible and wraps filenames at narrow widths. */
 #upload-meter{width:100%;height:14px;accent-color:var(--green,#245d49)}
@@ -250,6 +251,7 @@ function showView(view){
   $('#site-brand').hidden=cardModule;$('#card-brand').hidden=!cardModule;$('#card-navigation').hidden=!cardModule;$('#module-crumb').hidden=!cardModule;
   $('#site-home-link').textContent=home?'SENJIE 總入口':'返回 SENJIE 總入口';
   $('#crumb').textContent=routeLabels[view];document.title=home?'SENJIE 總入口 · 開發版':routeLabels[view]+' · SENJIE';
+  if(view==='inbox')prepareOriginalLinks();
 }
 function navigate(view){
   if(!Object.hasOwn(routeLabels,view))return;
@@ -266,7 +268,40 @@ function render(){
   const followups=cards.slice().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
   $('#followup-list').innerHTML=followups.length?followups.map(c=>`<article class="followup"><div><h2>${escape(c.name)} · ${escape(c.company)}</h2><p>${escape(c.next||'尚未設定下一步，請按「查看與修改」補填。')}</p><p>追蹤日期：${escape(c.date||'未指定')} · 尚未建立提醒</p></div><button class="secondary" data-id="${escape(c.id)}">查看與修改</button></article>`).join(''):'<p class="empty">目前沒有下一步行動。</p>';
 }
-function originalButton(source,label='開啟 Drive 原圖'){return `<button type="button" class="secondary" data-original="${escape(source.id)}">${escape(label)}</button>`;}
+const verifiedOriginalLinks=new Map();
+function originalButton(source,label='開啟 Drive 原圖'){
+  const url=verifiedOriginalLinks.get(source.id)?.url;
+  return `<a class="secondary" data-original="${escape(source.id)}" data-original-label="${escape(label)}" target="_blank" rel="noopener noreferrer" ${url?`href="${escape(url)}"`:'role="link" tabindex="0" aria-disabled="true"'}>${escape(url?label:'正在核對原圖…')}</a>`;
+}
+function resetOriginalLinks(){
+  verifiedOriginalLinks.clear();
+  document.querySelectorAll('[data-original]').forEach(link=>{link.removeAttribute('href');link.setAttribute('aria-disabled','true');link.textContent='正在核對原圖…';});
+}
+function prepareOriginalLink(id){
+  if(verifiedOriginalLinks.has(id))return verifiedOriginalLinks.get(id).promise;
+  const epoch=connectionEpoch,entry={};verifiedOriginalLinks.set(id,entry);
+  entry.promise=(async()=>{
+    try{
+      const result=await transport.original(id);
+      if(epoch!==connectionEpoch||!loaded||verifiedOriginalLinks.get(id)!==entry)throw new Error('請重新讀取後開啟原圖。');
+      if(typeof result.url!=='string'||!/^https:\/\/drive\.google\.com\/file\/d\/[A-Za-z0-9_-]+\/view(?:\?[^#]*)?$/.test(result.url))throw new Error('原圖網址不符，未開啟。');
+      entry.url=result.url;
+      document.querySelectorAll('[data-original]').forEach(link=>{if(link.dataset.original===id){link.setAttribute('href',result.url);link.removeAttribute('aria-disabled');link.removeAttribute('title');link.textContent=link.dataset.originalLabel;}});
+    }catch(error){
+      if(verifiedOriginalLinks.get(id)===entry){verifiedOriginalLinks.delete(id);document.querySelectorAll('[data-original]').forEach(link=>{if(link.dataset.original===id){link.removeAttribute('href');link.setAttribute('title',error.message);link.textContent='原圖暫時無法核對，按此重試';}});}
+      throw error;
+    }
+  })();return entry.promise;
+}
+async function prepareOriginalLinks(ids){
+  if(!transport||!loaded)return;
+  const epoch=connectionEpoch;
+  const sources=ids||[...document.querySelectorAll('[data-original]')].map(link=>link.dataset.original);
+  for(const id of new Set(sources)){
+    if(epoch!==connectionEpoch||!loaded)return;
+    try{await prepareOriginalLink(id);}catch{}
+  }
+}
 function openCard(id){
   if(!loaded||saving)return;
   pendingRequest=null;
@@ -278,6 +313,7 @@ function openCard(id){
   reviewSources=null;$('#archive-confirmation').hidden=true;$('#review-evidence').hidden=true;
   $('#field-checks').innerHTML='';$('#detail-form [type="submit"]').textContent=transport?'保存至 Google':'套用本次修改';
   $('#source-links').innerHTML=(editing.provenance?.sources||[]).map(s=>`<p>${escape(s.side)} · ${originalButton(s)} · ${escape(s.id)}</p>`).join('');
+  prepareOriginalLinks((editing.provenance?.sources||[]).map(s=>s.id));
 }
 function notify(message){if($('#detail').open){$('#detail-feedback').textContent=message;$('#detail-feedback').hidden=false;}$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').hidden=true,5000);}
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>navigate(button.dataset.view)));
@@ -293,11 +329,10 @@ $('#new-card').addEventListener('click',()=>openCard(null));$('#close-detail').a
 document.addEventListener('click',async e=>{
   const original=e.target.closest('[data-original]');
   if(original){
-    if(!transport||!loaded)return;
-    const epoch=connectionEpoch,viewer=window.open('about:blank','_blank');
-    if(!viewer){notify('請允許開啟原圖視窗。');return;}viewer.opener=null;
-    try{const result=await transport.original(original.dataset.original);if(epoch!==connectionEpoch||!loaded)throw new Error('請重新登入後開啟原圖。');viewer.location.href=result.url;}
-    catch(error){viewer.close();notify(error.message);}return;
+    if(!transport||!loaded){e.preventDefault();return;}
+    if(original.getAttribute('href'))return;
+    e.preventDefault();
+    try{await prepareOriginalLink(original.dataset.original);notify('原圖已就緒，請按原圖連結開啟。');}catch(error){notify(error.message);}return;
   }
   const target=e.target.closest('[data-id]');if(target)openCard(target.dataset.id);
 });
@@ -396,6 +431,7 @@ function renderImports(){
   const receipts=importSources.reduce((n,s)=>n+s.receipts.length,0),archived=importSources.filter(s=>s.state==='archived');
   $('#import-counts').textContent=`累計收件 ${receipts} 次 · 不重複原圖 ${importSources.length} 張 · 已確認實體卡 ${new Set(archived.map(s=>s.physicalCardId)).size} 張 · 已歸檔人物 ${new Set(archived.map(s=>s.personId)).size} 位`;
   $('#jobs').innerHTML=importSources.map(s=>`<article class="job"><div class="job-info"><strong>${escape(s.receipts[0].name)}</strong><p>${escape(s.id)} · 收件 ${s.receipts.length} 次 · ${escape(({saved:'原圖已保存',recognizing:'辨識待續',ready:'辨識完成／待確認',error:'辨識未完成',archived:'已確認歸檔'})[s.state])}</p>${originalButton(s)}<p>${escape(s.error||'')} · QR ${escape(s.qrStatus)}</p><details><summary>辨識原文與疑義</summary><pre>${escape(s.ocrText||'尚無可用辨識文字；可對照原圖手動確認。')}</pre><p>自動候選值仍待逐欄核對。無法確定的欄位留白；同一人的正反面在同一張照片時，面別選「正反面同圖」，只須確認一次。不同人的名片同框請先拆分，不可整張歸為一人。</p></details>${s.state==='archived'?`<p>已加入名片資料庫</p><button type="button" class="primary" data-person="${escape(s.personId)}">查看已歸檔人物</button><p>實體卡 ${escape(s.physicalCardId)} · 人物 ${escape(s.personId)}</p>`:`<label><input type="checkbox" data-source="${escape(s.id)}"> 選取此來源</label><label>面別<select data-side="${escape(s.id)}"><option>正面</option><option>反面</option><option>正反面同圖</option><option>補充</option></select></label><button type="button" class="primary" data-review="${escape(s.id)}">確認此張並建檔</button>${photoOCR?`<button type="button" class="secondary" data-recognize="${escape(s.id)}">重新辨識／續辦</button>`:``}`}</div></article>`).join('');
+  if(activeView==='inbox')prepareOriginalLinks(importSources.map(s=>s.id));
 }
 async function loadImports(){
   const epoch=connectionEpoch;
@@ -434,6 +470,7 @@ function openPhotoReview(selected){
   const sources=selected.map(s=>importSources.find(x=>x.id===s.id));
   for(const key of ['name','company','role','phone','email','address']){const values=[...new Set(sources.map(s=>s.candidates[key]).filter(Boolean))];if(values.length===1)$('#detail-form').elements[key].value=values[0];}
   $('#review-evidence').innerHTML=`<p>確認保存後，這個人物會加入名片資料庫。來源面別：${selected.map(s=>escape(s.side)).join('、')}。</p>`+sources.map(s=>`<p>${originalButton(s,'對照原圖：'+s.receipts[0].name)}</p><pre>${escape(s.ocrText||'尚無辨識原文，請直接核對原圖。')}</pre>`).join('');
+  prepareOriginalLinks(sources.map(s=>s.id));
   $('#field-checks').innerHTML=[...$('#detail-form').elements].filter(i=>i.name&&i.name!=='source').map(i=>`<label><input type="checkbox" value="${escape(i.name)}"> 已核對「${escape(i.closest('label')?.childNodes[0].textContent||i.name)}」</label>`).join('');
 }
 $('#detail-form').addEventListener('input',e=>{if(reviewSources&&e.target.name){const check=document.querySelector(`#field-checks input[value="${e.target.name}"]`);if(check)check.checked=false;pendingRequest=null;}});
@@ -446,6 +483,7 @@ window.addEventListener('beforeunload',event=>{
 });
 render();
 function clearWorkspace(){
+  resetOriginalLinks();
   connectionEpoch++;uploadQueue=[];hasCarriedUploads=false;photoReady=false;photoOCR=false;window.pendingPhotoRetry=null;
   previewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
   cards=[];importSources=[];archiveRecoveries=[];reviewSources=null;loaded=false;editing=null;pendingRequest=null;
@@ -462,6 +500,7 @@ function clearWorkspace(){
 }
 async function refresh(){
   if(!transport)return;
+  resetOriginalLinks();
   const epoch=connectionEpoch;loaded=false;photoReady=false;$('#photos').disabled=true;$('#new-card').disabled=true;
   $('.mode').textContent='正在讀取 Google';
   try{
@@ -478,6 +517,7 @@ async function refresh(){
     $('.notice').hidden=false;
     $('.notice').textContent=`Google 工作資料 · 讀取時間 ${new Date(response.readAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}。${photoReady?'照片請到收件匣保存並確認。':'目前可手動建檔與查詢；照片上傳尚未開放。'}`;
     await loadImports();
+    if($('#detail').open)prepareOriginalLinks((editing?.provenance?.sources||[]).map(s=>s.id));
   }catch(error){
     if(epoch!==connectionEpoch)return;
     loaded=false;cards=[];importSources=[];archiveRecoveries=[];render();renderImports();$('.mode').textContent='Google 讀取失敗';

@@ -42,6 +42,18 @@ export async function mountApp(backend,options={}){
   handlers:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn);},
  };
  const demoNodes=new Map();
+ const originalContainers=new Map();
+ const originalLinks=()=>['source-links','review-evidence','jobs'].flatMap(id=>{
+  const content=nodes.get(id).innerHTML,previous=originalContainers.get(id);
+  if(previous?.content===content)return previous.links;
+  const links=[...content.matchAll(/<a\b([^>]*\bdata-original="([^"]+)"[^>]*)>/g)].map(m=>{
+   const link=new Element();link.dataset.original=m[2];
+   for(const [,key,value] of m[1].matchAll(/([\w-]+)="([^"]*)"/g))link.setAttribute(key,value.replace(/&amp;/g,'&'));
+   link.dataset.originalLabel=link.getAttribute('data-original-label');return link;
+  });originalContainers.set(id,{content,links});return links;
+ });
+ const previousQueryAll=document.querySelectorAll;
+ document.querySelectorAll=selector=>selector==='[data-original]'?originalLinks():previousQueryAll(selector);
  for(const selector of ['[data-demo-status]','[data-demo-content]','[name="demo-preference"]','form','[type="submit"]','[data-demo-reload]'])demoNodes.set(selector,new Element(selector));
  demoNodes.get('form').querySelector=selector=>demoNodes.get(selector);
  nodes.get('conversations').querySelector=selector=>demoNodes.get(selector);
@@ -54,12 +66,12 @@ export async function mountApp(backend,options={}){
  const context=vm.createContext({document,window,google:options.popupTransport?undefined:{script:{run:bridge}},createSignInTransport:()=>options.popupTransport,FileReader:options.FileReader,crypto:{randomUUID},FormData:class{constructor(target){return target.elements.map(f=>[f.name,f.value]);}},Date,console,URL:{revokeObjectURL(){}},setTimeout:()=>1,clearTimeout(){}});
  vm.runInContext(options.script||source,context);
  const settled=()=>new Promise(resolve=>setImmediate(resolve));await settled();await settled();flushFrames();
- return {nodes,demoNodes,form,fields,submit,calls,context,settled,opened,flushFrames,scrollCalls,navigation:{views,buttons,links},
+ return {nodes,demoNodes,form,fields,submit,calls,context,settled,opened,originalLinks,flushFrames,scrollCalls,navigation:{views,buttons,links},
   async navigate(view){const control=buttons.find(b=>b.dataset.view===view)||links.find(l=>l.dataset.route===view);if(!control)throw new Error('No navigation control: '+view);await control.click();flushFrames();},
   async emitWindow(type){for(const fn of window.handlers[type]||[])await fn();flushFrames();},
   async setHash(hash){window.location.hash=hash;for(const fn of window.handlers.hashchange||[])await fn();flushFrames();},
   async openPerson(id){const target=new Element();target.dataset.id=id;for(const fn of document.handlers.click||[])await fn({target});},
-  async openOriginal(id){const target=new Element();target.dataset.original=id;for(const fn of document.handlers.click||[])await fn({target});},
+  async openOriginal(id){const target=originalLinks().find(link=>link.dataset.original===id)||new Element();target.dataset.original=id;let prevented=false;for(const fn of document.handlers.click||[])await fn({target,preventDefault(){prevented=true;}});await settled();return {target,prevented};},
   selectSources(sources){selected=sources.map((s,i)=>{const node=new Element();node.dataset.source=s.id;const side=new Element();side.value=i?'反面':'正面';sides.set(s.id,side);return node;});},
   async openReview(){await nodes.get('review-selected').click();},
   confirmFields(){checks.inputs.forEach(c=>c.checked=true);nodes.get('confirm-one-card').checked=true;},

@@ -23,7 +23,8 @@ test('一張虛構原圖經確認建檔、重開原介面仍查回同人物、�
  const reopened=await mountApp(env);await reopened.openPerson(person.id);
  assert.equal(reopened.fields.phone.value,'0900000066');assert.match(reopened.nodes.get('source-links').innerHTML,new RegExp(source.id));
  await reopened.openOriginal(source.id);
- assert.equal(reopened.opened[0].location.href,source.originalUrl);assert.equal(reopened.opened[0].opener,null);
+ assert.equal(reopened.originalLinks().find(link=>link.dataset.original===source.id).getAttribute('href'),source.originalUrl);
+ assert.equal(reopened.opened.length,0);
  assert.equal(env.c.verifyPhoto({sourceId:source.id}).sha256,image.sha256);
  assert.equal(env.files.size,1);assert.equal(env.sheets.Records.rows.length,2);
 });
@@ -39,7 +40,8 @@ test('原圖被移動、更換或回傳不安全網址時拒絕；重試也不�
  for(const meta of [{parents:['outside-folder']},{sha256Checksum:'0'.repeat(64)},{size:'1'},{webViewLink:'https://evil.example/photo'}]){
   const env=setup(),source=env.c.uploadPhoto(upload).source,file=env.files.get(source.originalId);file.meta={...file.meta,...meta};
   assert.throws(()=>env.c.verifyPhoto({sourceId:source.id}),/不符/);assert.throws(()=>env.c.uploadPhoto(upload),/不符/);
-  const page=await mountApp(env);await page.openOriginal(source.id);assert.equal(page.opened[0].closed,true);assert.equal(page.opened[0].location.href,'about:blank');
+  const page=await mountApp(env);await page.openOriginal(source.id);assert.equal(page.opened.length,0);
+  assert.equal(page.originalLinks().find(link=>link.dataset.original===source.id).getAttribute('href'),null);
  }
 });
 test('沒有原圖權限時唯讀就緒檢查回第一缺件，不觸發Drive或請求授權',()=>{
